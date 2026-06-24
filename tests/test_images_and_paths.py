@@ -6,7 +6,7 @@ from io import BytesIO
 import pytest
 
 from blog_writer import images as image_module
-from blog_writer.images import validate_image_plan
+from blog_writer.images import decide_images, validate_image_plan
 from blog_writer.models import GlobalImagePlan, ImageSpec
 from ui import results
 
@@ -58,6 +58,32 @@ def test_image_plan_rejects_duplicate_filenames() -> None:
     )
     with pytest.raises(ValueError, match="duplicate filenames"):
         validate_image_plan(original, plan)
+
+
+def test_decide_images_skips_invalid_image_plan(sample_state) -> None:
+    class FakePlanner:
+        def invoke(self, messages):
+            return GlobalImagePlan(
+                md_with_placeholders="# Different article\n\n[[IMAGE_1]]",
+                images=[image_spec()],
+            )
+
+    class FakeLLM:
+        def with_structured_output(self, schema):
+            return FakePlanner()
+
+    sample_state["merged_md"] = "# Article\n\nBody."
+    sample_state["research_errors"] = []
+    original_llm = image_module.llm
+    image_module.llm = FakeLLM()
+    try:
+        result = decide_images(sample_state)
+    finally:
+        image_module.llm = original_llm
+
+    assert result["md_with_placeholders"] == "# Article\n\nBody."
+    assert result["image_specs"] == []
+    assert "Image planning skipped" in result["research_errors"][0]
 
 
 def test_local_image_paths_cannot_escape_images_root(tmp_path, monkeypatch) -> None:

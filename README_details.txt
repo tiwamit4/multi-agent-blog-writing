@@ -27,6 +27,7 @@ multi-agent-blog-writing/
 |-- blog_writer/
 |   |-- __init__.py       # Package entrypoint
 |   |-- clients.py        # Shared Groq client configuration
+|   |-- config.py         # Token, search, outline, and generation-size limits
 |   |-- discovery.py      # Trend scouting, gap analysis, and idea ranking
 |   |-- graph.py          # LangGraph assembly and compilation
 |   |-- images.py         # Image planning, generation, and placement
@@ -48,6 +49,7 @@ multi-agent-blog-writing/
 |   |-- persistence_panel.py
 |   `-- metrics_panel.py
 |-- tests/
+|-- output/              # Generated articles and images
 |-- bwa_backend.py
 |-- bwa_frontend.py
 |-- requirements.txt
@@ -56,6 +58,10 @@ multi-agent-blog-writing/
 Usage
 
 Use the Workspace selector in the sidebar to switch between blog writing and topic discovery.
+
+Token and Cost Tuning
+
+Edit blog_writer/config.py to reduce or increase token usage. The most useful knobs are query count, search results per query, prompt snippet length, evidence count per section, section count, and target words per section.
 
 Discover topics:
 
@@ -84,7 +90,7 @@ Write a blog:
 7. Regenerate individual sections from the Plan tab when needed.
 8. Review and download the Markdown, images, or combined bundle.
 
-Generated Markdown files are saved under runs/<run-id>/article.md, so blogs with the same title cannot overwrite one another. Each run stores its images separately under images/<blog-slug>/<run-id>/.
+Generated Markdown files are saved under output/runs/<run-id>/article.md, so blogs with the same title cannot overwrite one another. Each run stores its images separately under output/images/<blog-slug>/<run-id>/.
 
 The Persistent runs panel lists recent SQLite-backed operations. Completed runs can be reopened. Interrupted, cancelled, and failed runs can be resumed from the latest successful LangGraph checkpoint. The database stores the plan, evidence, completed sections, metrics, logs, elapsed time, errors, and run status.
 

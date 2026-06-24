@@ -1,3 +1,5 @@
+"""Reusable Streamlit views for token, cost, latency, and agent progress metrics."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -9,6 +11,7 @@ from ui.outline_editor import plan_as_dict
 
 
 def merge_metric_snapshots(previous: dict | None, current: dict) -> dict:
+    """Combine multi-phase metrics so planning and writing show one total."""
     if not previous:
         return current
 
@@ -39,6 +42,7 @@ def merge_metric_snapshots(previous: dict | None, current: dict) -> dict:
 
 
 def render_metrics(snapshot: dict, title: str = "Usage and performance") -> None:
+    """Display aggregate token, call, cost, and latency metrics."""
     metrics = snapshot.get("metrics", {})
     st.subheader(title)
     columns = st.columns(5)
@@ -69,6 +73,7 @@ def render_metrics(snapshot: dict, title: str = "Usage and performance") -> None
 
 
 def agent_progress_rows(snapshot: dict[str, Any]) -> list[dict]:
+    """Convert graph node counts into rows suitable for the progress table."""
     phase = snapshot["phase"]
     state = snapshot.get("current_state", {})
     counts = snapshot.get("node_counts", {})
@@ -79,6 +84,7 @@ def agent_progress_rows(snapshot: dict[str, Any]) -> list[dict]:
     completed_sections = len(state.get("sections") or [])
 
     def status(node: str, completed: bool = False, skipped: bool = False) -> str:
+        """Map node activity and counts into a readable status label."""
         if skipped:
             return "Skipped"
         if node in active:
@@ -158,6 +164,7 @@ def agent_progress_rows(snapshot: dict[str, Any]) -> list[dict]:
 
 
 def job_progress_fraction(snapshot: dict) -> float:
+    """Estimate overall progress from completed progress-table rows."""
     rows = agent_progress_rows(snapshot)
     finished = sum(
         row["status"] in {"Complete", "Skipped", "Updated"} for row in rows
@@ -166,6 +173,7 @@ def job_progress_fraction(snapshot: dict) -> float:
 
 
 def render_workflow_metrics() -> None:
+    """Show completed workflow totals when no background job is active."""
     workflow_metrics = st.session_state.get("workflow_metrics")
     if workflow_metrics and not st.session_state.get("active_job"):
         with st.container(border=True):

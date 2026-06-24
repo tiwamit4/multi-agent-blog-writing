@@ -1,3 +1,5 @@
+"""Sidebar composition for blog creation and persisted-run controls."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -8,6 +10,7 @@ from ui.persistence_panel import render_past_blogs, render_persistent_runs
 
 
 def render_sidebar(job_is_running: bool) -> tuple[str, date, bool]:
+    """Render the blog-writer sidebar and return the user's current inputs."""
     with st.sidebar:
         st.header("Create a blog")
         topic = st.text_area("Topic", height=120, key="blog_topic")

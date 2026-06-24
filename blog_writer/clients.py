@@ -1,3 +1,5 @@
+"""Shared LLM client configuration and startup API-key validation."""
+
 import os
 
 from dotenv import load_dotenv
@@ -9,6 +11,7 @@ REQUIRED_API_KEYS = ("GROQ_API_KEY", "TAVILY_API_KEY", "GOOGLE_API_KEY")
 
 
 def validate_api_keys() -> None:
+    """Fail early when any external service key required by the app is missing."""
     missing = [key for key in REQUIRED_API_KEYS if not os.getenv(key)]
     if missing:
         names = ", ".join(missing)

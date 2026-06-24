@@ -1,3 +1,5 @@
+"""LangGraph assembly for planning, writing, regeneration, and discovery flows."""
+
 from langgraph.graph import END, START, StateGraph
 
 from .discovery import (
@@ -21,6 +23,7 @@ from .writing import (
 
 
 def build_reducer_subgraph():
+    """Build the shared merge/image/artifact tail used after section writing."""
     graph = StateGraph(State)
     graph.add_node("merge_content", merge_content)
     graph.add_node("decide_images", decide_images)
@@ -33,6 +36,7 @@ def build_reducer_subgraph():
 
 
 def build_graph(graph_checkpointer=checkpointer):
+    """Build the original end-to-end graph from routing through final artifact."""
     graph = StateGraph(State)
     graph.add_node("router", router_node)
     graph.add_node("research", research_node)
@@ -54,6 +58,7 @@ def build_graph(graph_checkpointer=checkpointer):
 
 
 def build_planning_graph(graph_checkpointer=checkpointer):
+    """Build the graph that stops after producing a user-editable outline."""
     graph = StateGraph(State)
     graph.add_node("router", router_node)
     graph.add_node("research", research_node)
@@ -70,6 +75,7 @@ def build_planning_graph(graph_checkpointer=checkpointer):
 
 
 def build_writing_graph(graph_checkpointer=checkpointer):
+    """Build the graph that writes from an already approved outline."""
     graph = StateGraph(State)
     graph.add_node("approved_outline", lambda state: {})
     graph.add_node("worker", worker_node)
@@ -82,6 +88,7 @@ def build_writing_graph(graph_checkpointer=checkpointer):
 
 
 def build_section_regeneration_graph(graph_checkpointer=checkpointer):
+    """Build the graph that rewrites one section and then rebuilds the article."""
     graph = StateGraph(State)
     graph.add_node("regenerate_worker", regenerate_worker_node)
     graph.add_node("reducer", build_reducer_subgraph())
@@ -92,6 +99,7 @@ def build_section_regeneration_graph(graph_checkpointer=checkpointer):
 
 
 def build_discovery_graph(graph_checkpointer=checkpointer):
+    """Build the topic-discovery graph from search through deterministic ranking."""
     graph = StateGraph(DiscoveryState)
     graph.add_node("trend_scout", trend_scout_node)
     graph.add_node("gap_analyst", gap_analyst_node)

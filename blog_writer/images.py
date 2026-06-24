@@ -1,3 +1,5 @@
+"""Image planning, image generation, placeholder replacement, and article output."""
+
 from __future__ import annotations
 
 import os
@@ -15,21 +17,11 @@ from .paths import (
     blog_run_dir,
     project_relative,
 )
-
-
-DECIDE_IMAGES_SYSTEM = """You are an expert technical editor.
-Decide if images/diagrams are needed for THIS blog.
-
-Rules:
-- Max 3 images total.
-- Each image must materially improve understanding (diagram/flow/table-like visual).
-- Insert each placeholder exactly once: [[IMAGE_1]], [[IMAGE_2]], [[IMAGE_3]].
-- Use unique plain .png filenames with no directory components.
-- Apart from inserting placeholder lines, preserve the input Markdown exactly.
-- If no images are needed, md_with_placeholders must equal input and images=[].
-- Avoid decorative images; prefer technical diagrams with short labels.
-Return strictly GlobalImagePlan.
-"""
+from .prompt import (
+    DECIDE_IMAGES_SYSTEM_PROMPT,
+    IMAGE_GENERATION_SUFFIX,
+    IMAGE_PLANNING_USER_INSTRUCTION,
+)
 
 _PLACEHOLDER_RE = re.compile(r"\[\[IMAGE_[123]\]\]")
 _ASPECT_RATIO_BY_SIZE = {
@@ -40,10 +32,12 @@ _ASPECT_RATIO_BY_SIZE = {
 
 
 def _normalized_markdown(markdown: str) -> str:
+    """Normalize whitespace before comparing markdown with placeholders removed."""
     return re.sub(r"\s+", " ", markdown).strip()
 
 
 def validate_image_plan(merged_markdown: str, image_plan: GlobalImagePlan) -> None:
+    """Ensure the image planner only inserts declared placeholders."""
     placeholders = [image.placeholder for image in image_plan.images]
     filenames = [image.filename.casefold() for image in image_plan.images]
     if len(placeholders) != len(set(placeholders)):
@@ -65,26 +59,37 @@ def validate_image_plan(merged_markdown: str, image_plan: GlobalImagePlan) -> No
 
 
 def decide_images(state: State) -> dict:
+    """Ask whether images are useful and return placeholder-enhanced markdown."""
     planner = llm.with_structured_output(GlobalImagePlan)
     merged_md = state["merged_md"]
     plan = state["plan"]
     if plan is None:
         raise ValueError("Cannot plan images without an approved blog plan.")
 
-    image_plan = planner.invoke(
-        [
-            SystemMessage(content=DECIDE_IMAGES_SYSTEM),
-            HumanMessage(
-                content=(
-                    f"Blog kind: {plan.blog_kind}\n"
-                    f"Topic: {state['topic']}\n\n"
-                    "Insert placeholders and propose image prompts.\n\n"
-                    f"{merged_md}"
-                )
-            ),
-        ]
-    )
-    validate_image_plan(merged_md, image_plan)
+    try:
+        image_plan = planner.invoke(
+            [
+                SystemMessage(content=DECIDE_IMAGES_SYSTEM_PROMPT),
+                HumanMessage(
+                    content=(
+                        f"Blog kind: {plan.blog_kind}\n"
+                        f"Topic: {state['topic']}\n\n"
+                        f"{IMAGE_PLANNING_USER_INSTRUCTION}\n\n"
+                        f"{merged_md}"
+                    )
+                ),
+            ]
+        )
+        validate_image_plan(merged_md, image_plan)
+    except Exception as error:
+        # Image planning should not block the article if the markdown was changed.
+        warnings = list(state.get("research_errors") or [])
+        warnings.append(f"Image planning skipped: {str(error)[:300]}")
+        return {
+            "md_with_placeholders": merged_md,
+            "image_specs": [],
+            "research_errors": warnings,
+        }
 
     return {
         "md_with_placeholders": image_plan.md_with_placeholders,
@@ -97,6 +102,7 @@ def _gemini_generate_image_bytes(
     size: str,
     quality: str,
 ) -> bytes:
+    """Generate one PNG image with Gemini and return its raw bytes."""
     from google import genai
     from google.genai import types
 
@@ -118,7 +124,7 @@ def _gemini_generate_image_bytes(
     client = genai.Client(api_key=api_key, http_options=http_options)
     generation_prompt = (
         f"{prompt}\n\nCanvas size: {size}. Output quality: {quality}. "
-        "Return a crisp PNG technical visual with readable labels."
+        f"{IMAGE_GENERATION_SUFFIX}"
     )
     response = client.models.generate_content(
         model="gemini-2.5-flash-image",
@@ -157,12 +163,14 @@ def _gemini_generate_image_bytes(
 
 
 def _write_article(markdown: str, blog_id: str) -> Path:
+    """Persist the final article markdown for one run."""
     article_path = blog_run_dir(blog_id) / "article.md"
     atomic_write_text(article_path, markdown)
     return article_path
 
 
 def generate_and_place_images(state: State) -> dict:
+    """Generate planned images, replace placeholders, and save final markdown."""
     plan = state["plan"]
     if plan is None:
         raise ValueError("Cannot generate images without an approved blog plan.")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from blog_writer import config
 from blog_writer.models import Plan, RouterDecision, Task
 
 
@@ -20,20 +21,36 @@ def make_task(task_id: int = 1, **overrides) -> Task:
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("id", 0), ("title", "  "), ("target_words", 119), ("target_words", 551)],
+    [
+        ("id", 0),
+        ("title", "  "),
+        ("target_words", config.TASK_MIN_TARGET_WORDS - 1),
+        ("target_words", config.TASK_MAX_TARGET_WORDS + 1),
+    ],
 )
 def test_task_constraints(field: str, value: object) -> None:
     with pytest.raises(ValidationError):
         make_task(**{field: value})
 
 
-def test_plan_requires_five_to_nine_unique_tasks() -> None:
+def test_plan_requires_configured_task_count_and_unique_ids() -> None:
     with pytest.raises(ValidationError):
         Plan(
             blog_title="Title",
             audience="Developers",
             tone="Clear",
-            tasks=[make_task(index) for index in range(1, 5)],
+            tasks=[make_task(index) for index in range(1, config.PLAN_MIN_TASKS)],
+        )
+
+    with pytest.raises(ValidationError):
+        Plan(
+            blog_title="Title",
+            audience="Developers",
+            tone="Clear",
+            tasks=[
+                make_task(index)
+                for index in range(1, config.PLAN_MAX_TASKS + 2)
+            ],
         )
 
     with pytest.raises(ValidationError):

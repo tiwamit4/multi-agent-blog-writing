@@ -1,3 +1,5 @@
+"""Streamlit controls for starting, resuming, monitoring, and finishing jobs."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -29,6 +31,7 @@ PHASE_GRAPHS = {
 
 
 def start_job(graph: Any, state: dict[str, Any], phase: str) -> None:
+    """Start a new background graph job if no other job is active."""
     current = st.session_state.get("active_job")
     if current and current.snapshot()["status"] not in TERMINAL_JOB_STATUSES:
         raise RuntimeError("Another generation job is already running.")
@@ -39,6 +42,7 @@ def start_job(graph: Any, state: dict[str, Any], phase: str) -> None:
 
 
 def resume_job(record: dict[str, Any]) -> None:
+    """Resume a persisted run or restart discovery when no checkpoint evidence exists."""
     current = st.session_state.get("active_job")
     if current and current.snapshot()["status"] not in TERMINAL_JOB_STATUSES:
         raise RuntimeError("Another generation job is already running.")
@@ -51,6 +55,7 @@ def resume_job(record: dict[str, Any]) -> None:
         and not record["state"].get("raw_results")
     )
     if restart_discovery:
+        # Discovery cannot resume from a failed evidence-less scout, so restart cleanly.
         saved_state = record["state"]
         discovery_state = {
             "seed_topic": saved_state["seed_topic"],
@@ -92,6 +97,7 @@ def resume_job(record: dict[str, Any]) -> None:
 
 
 def persisted_snapshot(record: dict[str, Any]) -> dict[str, Any]:
+    """Adapt a database run record to the live job snapshot shape."""
     return {
         "id": record["run_id"],
         "phase": record["phase"],
@@ -106,6 +112,7 @@ def persisted_snapshot(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def handle_finished_job(job: GraphJob, snapshot: dict) -> bool:
+    """Move a terminal job into Streamlit session state exactly once."""
     if st.session_state.get("handled_job_id") == snapshot["id"]:
         if st.session_state.get("active_job") is job:
             st.session_state["active_job"] = None
@@ -162,6 +169,7 @@ def handle_finished_job(job: GraphJob, snapshot: dict) -> bool:
 
 @st.fragment(run_every=0.75)
 def render_job_monitor() -> None:
+    """Render live job progress and process terminal states on rerun."""
     job = st.session_state.get("active_job")
     if not job:
         return

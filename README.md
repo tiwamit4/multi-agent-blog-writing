@@ -81,3 +81,5 @@ Then open the local URL printed by Streamlit, normally:
 ```text
 http://localhost:8501
 ```
+
+Generated articles and images are saved under the `output/` folder.

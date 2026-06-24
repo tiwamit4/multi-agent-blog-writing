@@ -19,6 +19,7 @@ def test_ground_evidence_rejects_unknown_urls_and_preserves_source_content() -> 
             EvidenceItem(
                 title="Changed title",
                 url="https://example.com/allowed",
+                published_at="2099-01-01",
                 snippet="Invented excerpt",
             ),
             EvidenceItem(
@@ -32,6 +33,7 @@ def test_ground_evidence_rejects_unknown_urls_and_preserves_source_content() -> 
 
     assert [item.url for item in grounded] == ["https://example.com/allowed"]
     assert grounded[0].title == "Original title"
+    assert grounded[0].published_at == "2026-06-20"
     assert grounded[0].snippet == "Grounded source excerpt"
 
 

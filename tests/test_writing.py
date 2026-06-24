@@ -5,6 +5,7 @@ import pytest
 from blog_writer.models import EvidenceItem
 from blog_writer.writing import (
     _select_relevant_evidence,
+    _strip_invalid_citation_urls,
     _validate_citation_urls,
     regenerate_worker_node,
     worker_payload,
@@ -38,6 +39,23 @@ def test_unapproved_citation_url_is_rejected() -> None:
             "Claim [Source](https://invented.invalid/source)",
             {"https://example.com/allowed"},
         )
+
+
+def test_invalid_citation_urls_are_stripped_before_validation() -> None:
+    cleaned = _strip_invalid_citation_urls(
+        (
+            "Good [Source](https://example.com/allowed). "
+            "Bad [placeholder](https://example.com/fake). "
+            "Empty [Not found](https://)."
+        ),
+        {"https://example.com/allowed"},
+    )
+
+    assert "[Source](https://example.com/allowed)" in cleaned
+    assert "placeholder" in cleaned
+    assert "https://example.com/fake" not in cleaned
+    assert "[Not found](https://)" not in cleaned
+    _validate_citation_urls(cleaned, {"https://example.com/allowed"})
 
 
 def test_section_regeneration_updates_only_requested_task(monkeypatch, sample_state) -> None:

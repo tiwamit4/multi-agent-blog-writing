@@ -1,3 +1,5 @@
+"""Token, latency, and estimated Groq cost accounting for graph runs."""
+
 from __future__ import annotations
 
 import threading
@@ -14,6 +16,7 @@ GROQ_OUTPUT_COST_PER_MILLION = 0.79
 
 
 def _token_usage(response: Any) -> dict[str, int]:
+    """Extract token counts across provider-specific LangChain response shapes."""
     llm_output = getattr(response, "llm_output", None) or {}
     usage = llm_output.get("token_usage") or llm_output.get("usage") or {}
 
@@ -41,6 +44,7 @@ class UsageMetricsCallback(BaseCallbackHandler):
     """Collect thread-safe token and per-node LLM latency metrics."""
 
     def __init__(self, initial: dict[str, Any] | None = None) -> None:
+        """Seed metrics from an optional persisted snapshot."""
         initial = initial or {}
         self._lock = threading.Lock()
         self._runs: dict[UUID, tuple[float, str]] = {}
@@ -65,6 +69,7 @@ class UsageMetricsCallback(BaseCallbackHandler):
         metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
+        """Track when an LLM call starts and which LangGraph node owns it."""
         node = str((metadata or {}).get("langgraph_node") or "llm")
         with self._lock:
             self._runs[run_id] = (time.perf_counter(), node)
@@ -78,6 +83,7 @@ class UsageMetricsCallback(BaseCallbackHandler):
         tags: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
+        """Accumulate token counts and latency when an LLM call finishes."""
         usage = _token_usage(response)
         with self._lock:
             started_at, node = self._runs.pop(run_id, (time.perf_counter(), "llm"))
@@ -97,10 +103,12 @@ class UsageMetricsCallback(BaseCallbackHandler):
         tags: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
+        """Forget failed calls so active-node reporting does not get stuck."""
         with self._lock:
             self._runs.pop(run_id, None)
 
     def snapshot(self) -> dict[str, Any]:
+        """Return a thread-safe metrics summary for UI display and persistence."""
         with self._lock:
             estimated_cost = (
                 self._input_tokens * GROQ_INPUT_COST_PER_MILLION

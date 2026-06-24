@@ -1,3 +1,5 @@
+"""SQLite checkpoint and run-registry persistence helpers."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +13,7 @@ from uuid import uuid4
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
+from . import config
 from .models import EvidenceItem, Plan
 
 
@@ -20,6 +23,7 @@ PROCESS_INSTANCE_ID = uuid4().hex
 
 
 def _database_path() -> Path:
+    """Resolve the database location from environment or project defaults."""
     configured = os.getenv("BLOG_WRITER_DB_PATH")
     if not configured:
         return DEFAULT_DATABASE_PATH
@@ -42,10 +46,12 @@ ALLOWED_CHECKPOINT_TYPES = [
 
 
 def checkpoint_serializer() -> JsonPlusSerializer:
+    """Limit checkpoint deserialization to the project model classes."""
     return JsonPlusSerializer(allowed_msgpack_modules=ALLOWED_CHECKPOINT_TYPES)
 
 
 def _json_default(value: Any) -> Any:
+    """Encode Pydantic models and common Python types for run metadata JSON."""
     if hasattr(value, "model_dump"):
         return value.model_dump()
     if isinstance(value, (date, datetime)):
@@ -58,18 +64,21 @@ def _json_default(value: Any) -> Any:
 
 
 def _json_dumps(value: Any) -> str:
+    """Serialize run metadata with the project-specific JSON fallback."""
     return json.dumps(value, default=_json_default, ensure_ascii=False)
 
 
 def _json_loads(value: str | None, fallback: Any) -> Any:
+    """Deserialize run metadata while allowing empty database fields."""
     if not value:
         return fallback
     return json.loads(value)
 
 
 def restore_state_types(state: dict[str, Any]) -> dict[str, Any]:
+    """Rehydrate persisted JSON state into Pydantic objects and tuple sections."""
     restored = dict(state)
-    restored.setdefault("max_results_per_query", 5)
+    restored.setdefault("max_results_per_query", config.DEFAULT_MAX_RESULTS_PER_QUERY)
     restored.setdefault("research_errors", [])
     restored.setdefault("artifact_path", "")
     if isinstance(restored.get("plan"), dict):
@@ -83,11 +92,15 @@ def restore_state_types(state: dict[str, Any]) -> dict[str, Any]:
 
 
 class RunStore:
+    """Small SQLite repository for Streamlit-facing run metadata."""
+
     def __init__(self, path: Path) -> None:
+        """Create a store backed by the given SQLite database path."""
         self.path = path
         self._setup()
 
     def _connect(self) -> sqlite3.Connection:
+        """Open a SQLite connection configured for concurrent local writes."""
         connection = sqlite3.connect(self.path, timeout=30)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA journal_mode=WAL")
@@ -95,6 +108,7 @@ class RunStore:
         return connection
 
     def _setup(self) -> None:
+        """Create the run registry table and indexes when missing."""
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -123,6 +137,7 @@ class RunStore:
             )
 
     def mark_orphaned_runs(self) -> int:
+        """Mark runs from older processes as interrupted on application startup."""
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
             cursor = connection.execute(
@@ -144,6 +159,7 @@ class RunStore:
         phase: str,
         state: dict[str, Any],
     ) -> None:
+        """Insert the initial metadata row for a newly started graph phase."""
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
             connection.execute(
@@ -180,6 +196,7 @@ class RunStore:
         elapsed_seconds: float,
         error: str | None,
     ) -> None:
+        """Update a run row with the latest status, state, metrics, and logs."""
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as connection:
             connection.execute(
@@ -205,6 +222,7 @@ class RunStore:
             )
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
+        """Fetch and decode one persisted run by ID."""
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT * FROM blog_runs WHERE run_id = ?",
@@ -213,6 +231,7 @@ class RunStore:
         return self._decode_row(row) if row else None
 
     def list_runs(self, limit: int = 30) -> list[dict[str, Any]]:
+        """Return recent runs newest-first for the sidebar controls."""
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT * FROM blog_runs ORDER BY updated_at DESC LIMIT ?",
@@ -222,6 +241,7 @@ class RunStore:
 
     @staticmethod
     def _decode_row(row: sqlite3.Row) -> dict[str, Any]:
+        """Convert a database row into the dictionary shape expected by the UI."""
         record = dict(row)
         record["state"] = restore_state_types(_json_loads(record.pop("state_json"), {}))
         record["metrics"] = _json_loads(record.pop("metrics_json"), {})

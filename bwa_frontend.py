@@ -1,3 +1,5 @@
+"""Streamlit entrypoint that composes the blog writer and discovery UI."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -6,6 +8,7 @@ from uuid import uuid4
 
 import streamlit as st
 
+from blog_writer import config
 from blog_writer.graph import planning_app
 from blog_writer.jobs import TERMINAL_JOB_STATUSES
 from ui.job_monitor import render_job_monitor, start_job
@@ -17,13 +20,14 @@ from ui.topic_discovery import render_discovery_results, render_discovery_sideba
 
 
 def initial_state(topic: str, as_of: date) -> dict[str, Any]:
+    """Create the default LangGraph state for a new blog-planning run."""
     return {
         "topic": topic.strip(),
         "blog_id": uuid4().hex[:12],
         "mode": "",
         "needs_research": False,
         "queries": [],
-        "max_results_per_query": 5,
+        "max_results_per_query": config.DEFAULT_MAX_RESULTS_PER_QUERY,
         "research_errors": [],
         "evidence": [],
         "plan": None,
@@ -40,6 +44,7 @@ def initial_state(topic: str, as_of: date) -> dict[str, Any]:
 
 
 def initialize_session_state() -> None:
+    """Initialize Streamlit session keys used across reruns and fragments."""
     defaults = {
         "active_job": None,
         "draft_state": None,
@@ -60,9 +65,11 @@ def initialize_session_state() -> None:
 
 
 def main() -> None:
+    """Render the selected workspace and dispatch new background jobs."""
     st.set_page_config(page_title="LangGraph Blog Writer", layout="wide")
     initialize_session_state()
 
+    # `next_workspace` lets callbacks switch tabs on the following rerun.
     requested_workspace = st.session_state.get("next_workspace")
     if requested_workspace:
         st.session_state["workspace"] = requested_workspace
@@ -74,6 +81,7 @@ def main() -> None:
     )
 
     active_job = st.session_state.get("active_job")
+    # The UI disables new starts while a background graph is still active.
     job_is_running = bool(
         active_job and active_job.snapshot()["status"] not in TERMINAL_JOB_STATUSES
     )

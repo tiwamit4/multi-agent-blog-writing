@@ -1,3 +1,5 @@
+"""Editable outline UI and conversion back into validated Plan objects."""
+
 from __future__ import annotations
 
 import json
@@ -7,11 +9,13 @@ import pandas as pd
 import streamlit as st
 from pydantic import ValidationError
 
+from blog_writer import config
 from blog_writer.graph import writing_app
 from blog_writer.models import Plan, Task
 
 
 def plan_as_dict(plan: Any) -> dict[str, Any]:
+    """Normalize Pydantic or persisted plan values into a plain dictionary."""
     if hasattr(plan, "model_dump"):
         return plan.model_dump()
     if isinstance(plan, dict):
@@ -20,6 +24,7 @@ def plan_as_dict(plan: Any) -> dict[str, Any]:
 
 
 def task_rows(plan: Any) -> pd.DataFrame:
+    """Convert plan tasks into rows accepted by Streamlit's data editor."""
     rows = []
     for task in plan_as_dict(plan).get("tasks", []):
         rows.append(
@@ -28,7 +33,7 @@ def task_rows(plan: Any) -> pd.DataFrame:
                 "title": task.get("title", ""),
                 "goal": task.get("goal", ""),
                 "bullets": "\n".join(task.get("bullets") or []),
-                "target_words": task.get("target_words", 250),
+                "target_words": task.get("target_words", config.DEFAULT_TARGET_WORDS),
                 "tags": ", ".join(task.get("tags") or []),
                 "research": bool(task.get("requires_research")),
                 "citations": bool(task.get("requires_citations")),
@@ -46,6 +51,7 @@ def edited_plan_from_ui(
     constraints_text: str,
     edited_tasks: pd.DataFrame,
 ) -> Plan:
+    """Build and validate a Plan from the user's edited table values."""
     tasks = []
     for _, row in edited_tasks.iterrows():
         title = str(row.get("title") or "").strip()
@@ -67,7 +73,9 @@ def edited_plan_from_ui(
                 title=title,
                 goal=str(row.get("goal") or "").strip(),
                 bullets=bullets,
-                target_words=int(row.get("target_words") or 250),
+                target_words=int(
+                    row.get("target_words") or config.DEFAULT_TARGET_WORDS
+                ),
                 tags=tags,
                 requires_research=bool(row.get("research", False)),
                 requires_citations=bool(row.get("citations", False)),
@@ -94,6 +102,7 @@ def edited_plan_from_ui(
 
 
 def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bool) -> None:
+    """Render the outline editor and start writing after user approval."""
     if (
         not draft_state
         or not draft_state.get("plan")
@@ -149,7 +158,10 @@ def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bo
                 "goal": st.column_config.TextColumn("Goal", required=True, width="large"),
                 "bullets": st.column_config.TextColumn("Bullets", required=True, width="large"),
                 "target_words": st.column_config.NumberColumn(
-                    "Words", min_value=120, max_value=550, step=10
+                    "Words",
+                    min_value=config.TASK_MIN_TARGET_WORDS,
+                    max_value=config.TASK_MAX_TARGET_WORDS,
+                    step=10,
                 ),
                 "tags": st.column_config.TextColumn("Tags"),
                 "research": st.column_config.CheckboxColumn("Research"),
@@ -171,6 +183,7 @@ def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bo
             except (ValidationError, ValueError, TypeError) as error:
                 st.error(f"Please fix the outline: {error}")
             else:
+                # Reset downstream fields so the writing graph starts from the edit.
                 writing_state = dict(draft_state)
                 writing_state.update(
                     {
@@ -185,6 +198,7 @@ def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bo
                     }
                 )
                 st.session_state["draft_state"] = writing_state
+                # Local import avoids a module cycle during Streamlit startup.
                 from ui.job_monitor import start_job
 
                 start_job(writing_app, writing_state, "writing")

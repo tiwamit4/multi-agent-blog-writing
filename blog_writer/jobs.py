@@ -1,3 +1,5 @@
+"""Background execution wrapper for Streamlit-triggered LangGraph runs."""
+
 from __future__ import annotations
 
 import json
@@ -32,6 +34,7 @@ class GraphJob:
         initial_elapsed_seconds: float = 0.0,
         store: RunStore = run_store,
     ) -> None:
+        """Prepare a graph job and create its durable run record when new."""
         self.id = run_id or uuid4().hex
         self.graph = graph
         self.inputs = inputs
@@ -69,6 +72,7 @@ class GraphJob:
         *,
         store: RunStore = run_store,
     ) -> "GraphJob":
+        """Recreate a job object from a persisted run before resuming it."""
         return cls(
             graph,
             record["state"],
@@ -84,6 +88,7 @@ class GraphJob:
         )
 
     def start(self) -> "GraphJob":
+        """Start the background thread and mark the job as running."""
         with self._lock:
             if self._status != "created":
                 raise RuntimeError("This job has already been started.")
@@ -99,6 +104,7 @@ class GraphJob:
         return self
 
     def cancel(self) -> None:
+        """Request cooperative cancellation after the current graph step returns."""
         self.cancel_event.set()
         with self._lock:
             if self._status == "running":
@@ -108,10 +114,12 @@ class GraphJob:
 
     @property
     def result(self) -> dict[str, Any] | None:
+        """Return the final graph state when the job has completed successfully."""
         with self._lock:
             return self._result
 
     def _run(self) -> None:
+        """Stream graph updates, persist progress, and capture terminal status."""
         stream = None
         final_state = None
         config = {
@@ -121,6 +129,7 @@ class GraphJob:
         try:
             stream_input: dict[str, Any] | None = self.inputs
             if self.resume_from_checkpoint:
+                # LangGraph resumes from stored checkpoint state when input is None.
                 checkpoint = self.graph.get_state(config)
                 if not checkpoint.values:
                     raise RuntimeError("No LangGraph checkpoint exists for this run.")
@@ -148,9 +157,11 @@ class GraphJob:
 
                 with self._lock:
                     if stream_kind == "values" and isinstance(payload, dict):
+                        # Values events carry the latest full state snapshot.
                         self._current_state = payload
                         final_state = payload
                     elif stream_kind == "updates" and isinstance(payload, dict):
+                        # Updates events identify which graph node just ran.
                         for node in payload:
                             if not str(node).startswith("__"):
                                 self._node_counts[node] = self._node_counts.get(node, 0) + 1
@@ -191,6 +202,7 @@ class GraphJob:
             self._persist()
 
     def _persist(self) -> None:
+        """Persist the latest snapshot into the run registry table."""
         snapshot = self.snapshot()
         self.store.update_run(
             run_id=self.id,
@@ -204,6 +216,7 @@ class GraphJob:
         )
 
     def snapshot(self) -> dict[str, Any]:
+        """Build a thread-safe view of job state for the UI and database."""
         with self._lock:
             now = self._finished_at or time.perf_counter()
             current_elapsed = now - self._started_at if self._started_at is not None else 0.0

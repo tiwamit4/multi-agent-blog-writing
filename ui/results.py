@@ -1,3 +1,5 @@
+"""Result tabs for plans, evidence, markdown preview, images, and logs."""
+
 from __future__ import annotations
 
 import re
@@ -24,6 +26,7 @@ from ui.persistence_panel import extract_title_from_md
 
 
 def _validated_image_files(images_dir: Path) -> list[Path]:
+    """List image files only when the directory is inside the image root."""
     resolved_directory = images_dir.resolve()
     if not is_within(resolved_directory, IMAGES_ROOT) or not resolved_directory.is_dir():
         return []
@@ -36,6 +39,7 @@ def _validated_image_files(images_dir: Path) -> list[Path]:
 
 
 def bundle_zip(md_text: str, md_filename: str, images_dir: Path) -> bytes:
+    """Create an in-memory ZIP containing markdown and any generated images."""
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(md_filename, md_text.encode("utf-8"))
@@ -45,6 +49,7 @@ def bundle_zip(md_text: str, md_filename: str, images_dir: Path) -> bytes:
 
 
 def images_zip(images_dir: Path) -> bytes | None:
+    """Create an in-memory ZIP for generated images, if any exist."""
     image_files = _validated_image_files(images_dir)
     if not image_files:
         return None
@@ -60,6 +65,7 @@ _CAPTION_LINE_RE = re.compile(r"^\*(?P<cap>.+)\*$")
 
 
 def blog_images_directory(title: str, blog_id: str, markdown: str) -> Path:
+    """Resolve the expected image directory for current or loaded markdown."""
     if blog_id:
         try:
             return blog_images_dir(title, blog_id)
@@ -75,6 +81,7 @@ def blog_images_directory(title: str, blog_id: str, markdown: str) -> Path:
 
 
 def _resolve_image_path(source: str) -> Path | None:
+    """Resolve a markdown image source while blocking paths outside images root."""
     source_path = Path(source.strip())
     candidate = source_path if source_path.is_absolute() else PROJECT_DIR / source_path
     resolved = candidate.resolve()
@@ -82,6 +89,7 @@ def _resolve_image_path(source: str) -> Path | None:
 
 
 def render_markdown_with_local_images(markdown: str) -> None:
+    """Render markdown while displaying safe local image paths via Streamlit."""
     matches = list(_MD_IMG_RE.finditer(markdown))
     if not matches:
         st.markdown(markdown, unsafe_allow_html=False)
@@ -140,6 +148,7 @@ def render_markdown_with_local_images(markdown: str) -> None:
 
 
 def render_results(out: dict[str, Any] | None, job_is_running: bool) -> None:
+    """Render all result tabs for the current draft, final article, or saved file."""
     tab_plan, tab_evidence, tab_preview, tab_images, tab_logs = st.tabs(
         ["Plan", "Evidence", "Markdown Preview", "Images", "Logs"]
     )
@@ -183,6 +192,7 @@ def render_results(out: dict[str, Any] | None, job_is_running: bool) -> None:
                 st.json(plan_dict.get("tasks", []))
 
             if final_markdown and out.get("sections"):
+                # Regeneration starts a new run ID so previous artifacts remain intact.
                 task_options = {
                     f"{task['id']}: {task['title']}": int(task["id"])
                     for task in plan_dict.get("tasks", [])

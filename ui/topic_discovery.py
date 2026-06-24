@@ -1,3 +1,5 @@
+"""Streamlit UI for discovering and handing off technical topic ideas."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -17,6 +19,7 @@ def initial_discovery_state(
     lookback_days: int,
     max_ideas: int,
 ) -> dict[str, Any]:
+    """Create the initial state for a topic-discovery graph run."""
     return {
         "seed_topic": seed_topic.strip(),
         "as_of": as_of.isoformat(),
@@ -31,6 +34,7 @@ def initial_discovery_state(
 
 
 def render_discovery_sidebar(job_is_running: bool) -> None:
+    """Render discovery controls and start a discovery job on submit."""
     with st.sidebar:
         st.header("Discover technical topics")
         seed_topic = st.text_input(
@@ -85,6 +89,7 @@ def render_discovery_sidebar(job_is_running: bool) -> None:
 
 
 def _idea_rows(ideas: list[dict]) -> pd.DataFrame:
+    """Convert ranked idea dictionaries into dashboard table rows."""
     return pd.DataFrame(
         [
             {
@@ -103,6 +108,7 @@ def _idea_rows(ideas: list[dict]) -> pd.DataFrame:
 
 
 def render_discovery_results(out: dict[str, Any] | None) -> None:
+    """Render discovery scores, evidence links, and blog handoff controls."""
     st.caption(
         "The dashboard searches current technical coverage, identifies under-served "
         "angles, grounds every idea in source URLs, and ranks ideas deterministically."
@@ -200,6 +206,7 @@ def render_discovery_results(out: dict[str, Any] | None) -> None:
                 key=f"write_discovered_topic_{idea['rank']}",
                 width="stretch",
             ):
+                # Handoff stores a rich prompt in the blog-writer topic box.
                 st.session_state["blog_topic"] = (
                     f"{idea['title']}\n\n"
                     f"Recommended angle: {idea['angle']}\n"

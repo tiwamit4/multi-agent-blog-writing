@@ -1,3 +1,5 @@
+"""Sidebar panels for loading saved markdown and persisted graph runs."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,6 +16,7 @@ RESUMABLE_RUN_STATUSES = {"created", "interrupted", "cancelled", "failed"}
 
 
 def list_past_blogs() -> list[Path]:
+    """Return saved markdown files from legacy root files and output runs."""
     legacy_files = [
         path
         for path in PROJECT_DIR.glob("*.md")
@@ -25,10 +28,12 @@ def list_past_blogs() -> list[Path]:
 
 
 def read_md_file(path: Path) -> str:
+    """Read a markdown file for preview, replacing bad bytes if needed."""
     return path.read_text(encoding="utf-8", errors="replace")
 
 
 def extract_title_from_md(markdown: str, fallback: str) -> str:
+    """Extract the first H1 heading from markdown for display labels."""
     for line in markdown.splitlines():
         if line.startswith("# "):
             return line[2:].strip() or fallback
@@ -36,6 +41,7 @@ def extract_title_from_md(markdown: str, fallback: str) -> str:
 
 
 def render_past_blogs(job_is_running: bool) -> None:
+    """Render controls for loading previously generated markdown files."""
     st.divider()
     st.subheader("Past blogs")
     past_files = list_past_blogs()
@@ -79,6 +85,7 @@ def render_past_blogs(job_is_running: bool) -> None:
 
 
 def render_persistent_runs(job_is_running: bool) -> None:
+    """Render controls for opening or resuming SQLite-backed graph runs."""
     st.divider()
     st.subheader("Persistent runs")
     persisted_runs = run_store.list_runs(limit=30)
@@ -109,6 +116,7 @@ def render_persistent_runs(job_is_running: bool) -> None:
         disabled=job_is_running,
         width="stretch",
     ):
+        # Opening a run hydrates the UI without starting any graph execution.
         if selected_run["phase"] == "discovery":
             st.session_state["discovery_out"] = selected_run["state"]
             st.session_state["next_workspace"] = "Topic Discovery"
