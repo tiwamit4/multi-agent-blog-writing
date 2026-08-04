@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 import traceback
@@ -14,6 +15,7 @@ from .persistence import RunStore, run_store
 
 
 TERMINAL_JOB_STATUSES = {"completed", "cancelled", "failed"}
+logger = logging.getLogger(__name__)
 
 
 class GraphJob:
@@ -98,7 +100,8 @@ class GraphJob:
             self._error = None
             self._traceback = None
             if self.resume_from_checkpoint:
-                self._logs.append("[resume] continuing from the latest SQLite checkpoint")
+                self._record_log("[resume] continuing from the latest SQLite checkpoint")
+            self._record_log("[start] job started")
         self._persist()
         self._thread.start()
         return self
@@ -109,7 +112,9 @@ class GraphJob:
         with self._lock:
             if self._status == "running":
                 self._status = "cancelling"
-                self._logs.append("Cancellation requested; waiting for the active API call to return.")
+                self._record_log(
+                    "Cancellation requested; waiting for the active API call to return."
+                )
         self._persist()
 
     @property
@@ -139,7 +144,7 @@ class GraphJob:
                         self._result = final_state
                         self._current_state = final_state
                         self._status = "completed"
-                        self._logs.append("[resume] checkpoint was already complete")
+                        self._record_log("[resume] checkpoint was already complete")
                     return
                 stream_input = None
 
@@ -152,6 +157,7 @@ class GraphJob:
                 if self.cancel_event.is_set():
                     with self._lock:
                         self._status = "cancelled"
+                        self._record_log("[cancelled] job cancelled")
                     self._persist()
                     return
 
@@ -165,7 +171,7 @@ class GraphJob:
                         for node in payload:
                             if not str(node).startswith("__"):
                                 self._node_counts[node] = self._node_counts.get(node, 0) + 1
-                        self._logs.append(
+                        self._record_log(
                             f"[updates] {json.dumps(payload, default=str)[:1200]}"
                         )
                 self._persist()
@@ -173,6 +179,7 @@ class GraphJob:
             if self.cancel_event.is_set():
                 with self._lock:
                     self._status = "cancelled"
+                    self._record_log("[cancelled] job cancelled")
                 self._persist()
                 return
             if final_state is None:
@@ -182,14 +189,15 @@ class GraphJob:
                 self._result = final_state
                 self._current_state = final_state
                 self._status = "completed"
-                self._logs.append("[final] received final state")
+                self._record_log("[final] received final state")
             self._persist()
         except Exception as error:
             with self._lock:
                 self._status = "failed"
                 self._error = str(error)
                 self._traceback = traceback.format_exc()
-                self._logs.append(f"[error] {error}")
+                self._record_log(f"[error] {error}", level=logging.ERROR)
+            logger.debug("Graph job traceback", exc_info=True)
             self._persist()
         finally:
             if stream is not None and hasattr(stream, "close"):
@@ -200,6 +208,11 @@ class GraphJob:
             with self._lock:
                 self._finished_at = time.perf_counter()
             self._persist()
+
+    def _record_log(self, message: str, *, level: int = logging.INFO) -> None:
+        """Store a UI/database event and mirror it to the terminal logger."""
+        self._logs.append(message)
+        logger.log(level, "[%s:%s] %s", self.id, self.phase, message)
 
     def _persist(self) -> None:
         """Persist the latest snapshot into the run registry table."""

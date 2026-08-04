@@ -9,6 +9,7 @@ from uuid import uuid4
 import streamlit as st
 
 from blog_writer import config
+from blog_writer.app_logging import configure_terminal_logging
 from blog_writer.graph import planning_app
 from blog_writer.jobs import TERMINAL_JOB_STATUSES
 from ui.job_monitor import render_job_monitor, start_job
@@ -66,6 +67,7 @@ def initialize_session_state() -> None:
 
 def main() -> None:
     """Render the selected workspace and dispatch new background jobs."""
+    configure_terminal_logging()
     st.set_page_config(page_title="LangGraph Blog Writer", layout="wide")
     initialize_session_state()
 
