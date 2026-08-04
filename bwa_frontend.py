@@ -16,6 +16,7 @@ from ui.job_monitor import render_job_monitor, start_job
 from ui.metrics_panel import render_workflow_metrics
 from ui.outline_editor import render_outline_editor
 from ui.results import render_results
+from ui.section_review import render_section_review
 from ui.sidebar import render_sidebar
 from ui.topic_discovery import render_discovery_results, render_discovery_sidebar
 
@@ -120,6 +121,7 @@ def main() -> None:
         st.success(st.session_state["last_notice"])
 
     render_outline_editor(st.session_state.get("draft_state"), job_is_running)
+    render_section_review(st.session_state.get("draft_state"), job_is_running)
     render_workflow_metrics()
     render_results(st.session_state.get("last_out"), job_is_running)
 

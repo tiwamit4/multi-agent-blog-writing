@@ -9,7 +9,9 @@ import streamlit as st
 
 from blog_writer.graph import (
     discovery_app,
+    finalizing_app,
     planning_app,
+    section_draft_regeneration_app,
     section_regeneration_app,
     writing_app,
 )
@@ -24,7 +26,9 @@ from ui.metrics_panel import (
 
 PHASE_GRAPHS = {
     "discovery": discovery_app,
+    "finalizing": finalizing_app,
     "planning": planning_app,
+    "section_regeneration": section_draft_regeneration_app,
     "writing": writing_app,
     "regeneration": section_regeneration_app,
 }
@@ -137,6 +141,24 @@ def handle_finished_job(job: GraphJob, snapshot: dict) -> bool:
                 st.session_state["workflow_metrics"] = snapshot
                 st.session_state["last_notice"] = (
                     "Outline ready—review and edit it before writing."
+                )
+            elif snapshot["phase"] == "writing":
+                st.session_state["draft_state"] = result
+                st.session_state["last_out"] = result
+                st.session_state["workflow_metrics"] = merge_metric_snapshots(
+                    st.session_state.get("workflow_metrics"), snapshot
+                )
+                st.session_state["last_notice"] = (
+                    "Section drafts are ready; review, edit, or regenerate them."
+                )
+            elif snapshot["phase"] == "section_regeneration":
+                st.session_state["draft_state"] = result
+                st.session_state["last_out"] = result
+                st.session_state["workflow_metrics"] = merge_metric_snapshots(
+                    st.session_state.get("workflow_metrics"), snapshot
+                )
+                st.session_state["last_notice"] = (
+                    "Section regenerated; review the updated draft before finalizing."
                 )
             else:
                 st.session_state["draft_state"] = result

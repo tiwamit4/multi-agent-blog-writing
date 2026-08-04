@@ -106,6 +106,7 @@ def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bo
     if (
         not draft_state
         or not draft_state.get("plan")
+        or draft_state.get("sections")
         or draft_state.get("final")
         or job_is_running
     ):
@@ -170,7 +171,7 @@ def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bo
             },
         )
 
-        if st.button("2. Write approved outline", type="primary", width="stretch"):
+        if st.button("2. Write section drafts", type="primary", width="stretch"):
             try:
                 edited_plan = edited_plan_from_ui(
                     edited_title,
@@ -183,7 +184,7 @@ def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bo
             except (ValidationError, ValueError, TypeError) as error:
                 st.error(f"Please fix the outline: {error}")
             else:
-                # Reset downstream fields so the writing graph starts from the edit.
+                # Reset downstream fields so section writing starts from the edit.
                 writing_state = dict(draft_state)
                 writing_state.update(
                     {

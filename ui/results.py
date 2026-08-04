@@ -258,7 +258,10 @@ def render_results(out: dict[str, Any] | None, job_is_running: bool) -> None:
     with tab_preview:
         st.subheader("Markdown Preview")
         if not final_markdown:
-            st.info("Approve the outline to generate the article.")
+            if out.get("sections"):
+                st.info("Review and approve the generated sections to build the article.")
+            else:
+                st.info("Approve the outline to generate section drafts.")
         else:
             render_markdown_with_local_images(final_markdown)
             markdown_filename = f"{safe_slug(blog_title)}.md"

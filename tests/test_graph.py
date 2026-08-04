@@ -4,7 +4,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from blog_writer.graph import (
     build_discovery_graph,
+    build_finalizing_graph,
     build_planning_graph,
+    build_section_draft_regeneration_graph,
     build_section_regeneration_graph,
     build_writing_graph,
 )
@@ -19,6 +21,8 @@ def test_route_next_uses_normalized_research_state() -> None:
 def test_all_phase_graphs_compile_with_an_in_memory_checkpointer() -> None:
     checkpointer = InMemorySaver()
     assert build_discovery_graph(checkpointer)
+    assert build_finalizing_graph(checkpointer)
     assert build_planning_graph(checkpointer)
+    assert build_section_draft_regeneration_graph(checkpointer)
     assert build_writing_graph(checkpointer)
     assert build_section_regeneration_graph(checkpointer)
