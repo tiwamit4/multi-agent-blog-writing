@@ -115,7 +115,7 @@ def render_section_review(
             st.rerun()
 
         if st.button(
-            "Approve sections and build final article",
+            "4. Approve sections and build final article",
             type="primary",
             width="stretch",
         ):

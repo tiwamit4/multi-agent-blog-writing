@@ -10,10 +10,11 @@ import streamlit as st
 
 from blog_writer import config
 from blog_writer.app_logging import configure_terminal_logging
-from blog_writer.graph import planning_app
+from blog_writer.graph import evidence_app
 from blog_writer.jobs import TERMINAL_JOB_STATUSES
 from ui.job_monitor import render_job_monitor, start_job
 from ui.metrics_panel import render_workflow_metrics
+from ui.evidence_review import render_evidence_review
 from ui.outline_editor import render_outline_editor
 from ui.results import render_results
 from ui.section_review import render_section_review
@@ -110,7 +111,7 @@ def main() -> None:
             st.session_state["draft_state"] = None
             st.session_state["last_out"] = None
             st.session_state["workflow_metrics"] = None
-            start_job(planning_app, initial_state(topic, as_of), "planning")
+            start_job(evidence_app, initial_state(topic, as_of), "evidence")
             st.rerun()
 
     render_job_monitor()
@@ -120,6 +121,7 @@ def main() -> None:
     if st.session_state.get("last_notice"):
         st.success(st.session_state["last_notice"])
 
+    render_evidence_review(st.session_state.get("draft_state"), job_is_running)
     render_outline_editor(st.session_state.get("draft_state"), job_is_running)
     render_section_review(st.session_state.get("draft_state"), job_is_running)
     render_workflow_metrics()

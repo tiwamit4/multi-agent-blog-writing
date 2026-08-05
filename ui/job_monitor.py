@@ -9,6 +9,7 @@ import streamlit as st
 
 from blog_writer.graph import (
     discovery_app,
+    evidence_app,
     finalizing_app,
     planning_app,
     section_draft_regeneration_app,
@@ -26,6 +27,7 @@ from ui.metrics_panel import (
 
 PHASE_GRAPHS = {
     "discovery": discovery_app,
+    "evidence": evidence_app,
     "finalizing": finalizing_app,
     "planning": planning_app,
     "section_regeneration": section_draft_regeneration_app,
@@ -135,12 +137,21 @@ def handle_finished_job(job: GraphJob, snapshot: dict) -> bool:
                 st.session_state["last_notice"] = (
                     "Topic discovery completed and ranked ideas are ready."
                 )
-            elif snapshot["phase"] == "planning":
+            elif snapshot["phase"] == "evidence":
                 st.session_state["draft_state"] = result
                 st.session_state["last_out"] = result
                 st.session_state["workflow_metrics"] = snapshot
                 st.session_state["last_notice"] = (
-                    "Outline ready—review and edit it before writing."
+                    "Sources are ready; review, add, or remove them before outlining."
+                )
+            elif snapshot["phase"] == "planning":
+                st.session_state["draft_state"] = result
+                st.session_state["last_out"] = result
+                st.session_state["workflow_metrics"] = merge_metric_snapshots(
+                    st.session_state.get("workflow_metrics"), snapshot
+                )
+                st.session_state["last_notice"] = (
+                    "Outline ready; review and edit it before writing."
                 )
             elif snapshot["phase"] == "writing":
                 st.session_state["draft_state"] = result
@@ -200,7 +211,7 @@ def render_job_monitor() -> None:
     status_label = snapshot["status"].replace("_", " ").title()
     with st.container(border=True):
         heading, action = st.columns([4, 1])
-        heading.subheader(f"{snapshot['phase'].title()} · {status_label}")
+        heading.subheader(f"{snapshot['phase'].title()} - {status_label}")
         if snapshot["status"] in {"running", "cancelling"}:
             if action.button(
                 "Cancel generation",
@@ -226,3 +237,4 @@ def render_job_monitor() -> None:
     if snapshot["status"] in TERMINAL_JOB_STATUSES:
         if handle_finished_job(job, snapshot):
             st.rerun(scope="app")
+

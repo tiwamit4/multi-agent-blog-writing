@@ -11,7 +11,7 @@ from ui.outline_editor import plan_as_dict
 
 
 def merge_metric_snapshots(previous: dict | None, current: dict) -> dict:
-    """Combine multi-phase metrics so planning and writing show one total."""
+    """Combine multi-phase metrics so the workflow shows one total."""
     if not previous:
         return current
 
@@ -72,6 +72,23 @@ def render_metrics(snapshot: dict, title: str = "Usage and performance") -> None
             st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
+def _status(
+    node: str,
+    counts: dict[str, int],
+    active: set[str],
+    completed: bool = False,
+    skipped: bool = False,
+) -> str:
+    """Map node activity and counts into a readable status label."""
+    if skipped:
+        return "Skipped"
+    if node in active:
+        return "Running"
+    if completed or counts.get(node, 0):
+        return "Complete"
+    return "Pending"
+
+
 def agent_progress_rows(snapshot: dict[str, Any]) -> list[dict]:
     """Convert graph node counts into rows suitable for the progress table."""
     phase = snapshot["phase"]
@@ -84,14 +101,8 @@ def agent_progress_rows(snapshot: dict[str, Any]) -> list[dict]:
     completed_sections = len(state.get("sections") or [])
 
     def status(node: str, completed: bool = False, skipped: bool = False) -> str:
-        """Map node activity and counts into a readable status label."""
-        if skipped:
-            return "Skipped"
-        if node in active:
-            return "Running"
-        if completed or counts.get(node, 0):
-            return "Complete"
-        return "Pending"
+        """Readability wrapper around the shared status mapper."""
+        return _status(node, counts, active, completed, skipped)
 
     if phase == "discovery":
         discovery_agents = [
@@ -108,10 +119,11 @@ def agent_progress_rows(snapshot: dict[str, Any]) -> list[dict]:
             for node, label in discovery_agents
         ]
 
-    if phase == "planning":
+    if phase == "evidence":
         router_done = bool(counts.get("router"))
         needs_research = bool(state.get("needs_research"))
         research_done = bool(counts.get("research"))
+        evidence_count = len(state.get("evidence") or [])
         return [
             {
                 "agent": "Router",
@@ -126,8 +138,24 @@ def agent_progress_rows(snapshot: dict[str, Any]) -> list[dict]:
                 "progress": (
                     "1/1"
                     if research_done
-                    else ("—" if router_done and not needs_research else "0/1")
+                    else ("Skipped" if router_done and not needs_research else "0/1")
                 ),
+            },
+            {
+                "agent": "Sources available",
+                "status": "Updated" if router_done else "Pending",
+                "progress": str(evidence_count),
+            },
+        ]
+
+    if phase == "planning":
+        return [
+            {
+                "agent": "Source approval",
+                "status": status(
+                    "approved_evidence", bool(counts.get("approved_evidence"))
+                ),
+                "progress": "1/1" if counts.get("approved_evidence") else "0/1",
             },
             {
                 "agent": "Planner",
@@ -136,30 +164,59 @@ def agent_progress_rows(snapshot: dict[str, Any]) -> list[dict]:
             },
         ]
 
-    writer_node = "regenerate_worker" if phase == "regeneration" else "worker"
-    writer_label = (
-        "Section regenerator" if phase == "regeneration" else "Section writers"
-    )
-    writer_target = 1 if phase == "regeneration" else total_sections
+    if phase == "finalizing":
+        return [
+            {
+                "agent": "Merger",
+                "status": status("merge_content", bool(counts.get("merge_content"))),
+                "progress": "1/1" if counts.get("merge_content") else "0/1",
+            },
+            {
+                "agent": "Image planner",
+                "status": status("decide_images", bool(counts.get("decide_images"))),
+                "progress": "1/1" if counts.get("decide_images") else "0/1",
+            },
+            {
+                "agent": "Image generator",
+                "status": status(
+                    "generate_and_place_images",
+                    bool(counts.get("generate_and_place_images")),
+                ),
+                "progress": (
+                    "1/1" if counts.get("generate_and_place_images") else "0/1"
+                ),
+            },
+        ]
+
+    is_regeneration = phase in {"regeneration", "section_regeneration"}
+    writer_node = "regenerate_worker" if is_regeneration else "worker"
+    writer_label = "Section regenerator" if is_regeneration else "Section writers"
+    writer_target = 1 if is_regeneration else total_sections
     writer_done = counts.get(writer_node, 0)
+    writer_row = {
+        "agent": writer_label,
+        "status": status(
+            writer_node, writer_done >= writer_target and writer_target > 0
+        ),
+        "progress": f"{min(writer_done, writer_target)}/{writer_target}",
+    }
+    sections_row = {
+        "agent": "Sections available",
+        "status": "Updated" if completed_sections else "Pending",
+        "progress": f"{completed_sections}/{total_sections}",
+    }
+
+    if phase in {"writing", "section_regeneration"}:
+        return [writer_row, sections_row]
+
     return [
-        {
-            "agent": writer_label,
-            "status": status(
-                writer_node, writer_done >= writer_target and writer_target > 0
-            ),
-            "progress": f"{min(writer_done, writer_target)}/{writer_target}",
-        },
+        writer_row,
         {
             "agent": "Merger and image agents",
             "status": status("reducer", bool(counts.get("reducer"))),
             "progress": "1/1" if counts.get("reducer") else "0/1",
         },
-        {
-            "agent": "Sections available",
-            "status": "Updated" if completed_sections else "Pending",
-            "progress": f"{completed_sections}/{total_sections}",
-        },
+        sections_row,
     ]
 
 
@@ -178,3 +235,4 @@ def render_workflow_metrics() -> None:
     if workflow_metrics and not st.session_state.get("active_job"):
         with st.container(border=True):
             render_metrics(workflow_metrics, "Workflow total")
+

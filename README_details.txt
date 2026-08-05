@@ -8,8 +8,11 @@ Features
 - Performs optional web research with Tavily.
 - Runs bounded Tavily searches concurrently with retries, timeouts, and visible partial-failure warnings.
 - Rejects research URLs that were not present in the original search results.
+- Adds a human-in-the-loop evidence review step to approve, remove, edit, or add sources.
 - Produces an editable outline before any section writers run.
 - Runs section writers in parallel after outline approval.
+- Adds a human-in-the-loop section review step before final Markdown is built.
+- Allows each generated section to be edited or regenerated before final approval.
 - Supports cooperative cancellation with live per-agent progress.
 - Persists graph checkpoints, run state, metrics, logs, and status in SQLite.
 - Resumes interrupted, cancelled, or failed runs from their latest successful graph step.
@@ -43,7 +46,9 @@ multi-agent-blog-writing/
 |   |-- __init__.py
 |   |-- sidebar.py
 |   |-- topic_discovery.py
+|   |-- evidence_review.py
 |   |-- outline_editor.py
+|   |-- section_review.py
 |   |-- job_monitor.py
 |   |-- results.py
 |   |-- persistence_panel.py
@@ -83,12 +88,16 @@ Write a blog:
 
 1. Enter a technical blog topic in the sidebar.
 2. Select the date used for recency-sensitive research.
-3. Click Generate outline.
-4. Edit the title, metadata, sections, bullets, word targets, and task flags.
-5. Click Write approved outline.
-6. Follow live agent progress or cancel the active generation.
-7. Regenerate individual sections from the Plan tab when needed.
-8. Review and download the Markdown, images, or combined bundle.
+3. Click Gather evidence.
+4. Review researched sources, remove weak sources, edit metadata, or add manual sources.
+5. Click Approve sources and generate outline.
+6. Edit the title, metadata, sections, bullets, word targets, and task flags.
+7. Click Write section drafts.
+8. Follow live agent progress or cancel the active generation.
+9. Review each generated section, edit Markdown directly, or regenerate only the section that needs work.
+10. Click Approve sections and build final article.
+11. Regenerate individual sections from the Plan tab later when needed.
+12. Review and download the Markdown, images, or combined bundle.
 
 Generated Markdown files are saved under output/runs/<run-id>/article.md, so blogs with the same title cannot overwrite one another. Each run stores its images separately under output/images/<blog-slug>/<run-id>/.
 
@@ -109,11 +118,14 @@ result = app.invoke(inputs, config)
 
 The input must contain the complete graph state defined in blog_writer/models.py. A unique thread_id is required because the graph is compiled with SQLite checkpointing. Reusing a thread ID continues that thread's saved state.
 
-The interface uses three focused graph entrypoints from blog_writer.graph:
+The interface uses focused graph entrypoints from blog_writer.graph:
 
-- planning_app for routing, research, and outline generation
-- writing_app for approved-outline fan-out and reduction
-- section_regeneration_app for replacing one section and rebuilding the article
+- evidence_app for routing, optional Tavily research, and the source-review checkpoint
+- planning_app for creating an outline from human-approved evidence
+- writing_app for approved-outline fan-out and section draft generation
+- section_draft_regeneration_app for replacing one draft section before finalization
+- finalizing_app for merging approved section drafts, planning images, and saving artifacts
+- section_regeneration_app for replacing one section after finalization and rebuilding the article
 
 Persistence
 
@@ -145,7 +157,7 @@ python -c "import langgraph, langchain_core, langchain_groq"
 
 No research evidence
 
-Research is skipped for evergreen topics. For research-enabled topics, Tavily failures are reported with the query that failed instead of being silently ignored.
+Research is skipped for evergreen topics. For research-enabled topics, Tavily failures are reported with the query that failed instead of being silently ignored. If useful sources are missing, add manual sources in the evidence review table before generating the outline.
 
 Images are not generated
 

@@ -16,7 +16,7 @@ def render_sidebar(job_is_running: bool) -> tuple[str, date, bool]:
         topic = st.text_area("Topic", height=120, key="blog_topic")
         as_of = st.date_input("As-of date", value=date.today())
         outline_button = st.button(
-            "1. Generate outline",
+            "1. Gather evidence",
             type="primary",
             disabled=job_is_running,
             width="stretch",

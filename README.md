@@ -13,11 +13,15 @@ Router ---- closed book -------------------+
   +---- hybrid/open book ---> Research     |
                                |           |
                                v           v
+                             Human Evidence Review
+                                      |
                             Orchestrator / Planner
                                       |
                               Human Outline Review
                                       |
                                Parallel Workers
+                                      |
+                              Human Section Review
                                       |
                               Merge Blog Sections
                                       |

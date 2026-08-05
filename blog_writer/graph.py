@@ -58,19 +58,30 @@ def build_graph(graph_checkpointer=checkpointer):
 
 
 def build_planning_graph(graph_checkpointer=checkpointer):
-    """Build the graph that stops after producing a user-editable outline."""
+    """Build the graph that creates an outline from approved evidence."""
+    graph = StateGraph(State)
+    graph.add_node("approved_evidence", lambda state: {})
+    graph.add_node("orchestrator", orchestrator_node)
+    graph.add_edge(START, "approved_evidence")
+    graph.add_edge("approved_evidence", "orchestrator")
+    graph.add_edge("orchestrator", END)
+    return graph.compile(checkpointer=graph_checkpointer)
+
+
+def build_evidence_graph(graph_checkpointer=checkpointer):
+    """Build the graph that pauses after routing and optional web research."""
     graph = StateGraph(State)
     graph.add_node("router", router_node)
     graph.add_node("research", research_node)
-    graph.add_node("orchestrator", orchestrator_node)
+    graph.add_node("ready_for_evidence_review", lambda state: {})
     graph.add_edge(START, "router")
     graph.add_conditional_edges(
         "router",
         route_next,
-        {"research": "research", "orchestrator": "orchestrator"},
+        {"research": "research", "orchestrator": "ready_for_evidence_review"},
     )
-    graph.add_edge("research", "orchestrator")
-    graph.add_edge("orchestrator", END)
+    graph.add_edge("research", END)
+    graph.add_edge("ready_for_evidence_review", END)
     return graph.compile(checkpointer=graph_checkpointer)
 
 
@@ -132,6 +143,7 @@ def build_discovery_graph(graph_checkpointer=checkpointer):
 
 
 app = build_graph()
+evidence_app = build_evidence_graph()
 planning_app = build_planning_graph()
 writing_app = build_writing_graph()
 finalizing_app = build_finalizing_graph()
@@ -142,6 +154,7 @@ discovery_app = build_discovery_graph()
 __all__ = [
     "app",
     "discovery_app",
+    "evidence_app",
     "finalizing_app",
     "planning_app",
     "section_draft_regeneration_app",
@@ -149,6 +162,7 @@ __all__ = [
     "writing_app",
     "build_graph",
     "build_discovery_graph",
+    "build_evidence_graph",
     "build_finalizing_graph",
     "build_planning_graph",
     "build_reducer_subgraph",

@@ -171,7 +171,7 @@ def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bo
             },
         )
 
-        if st.button("2. Write section drafts", type="primary", width="stretch"):
+        if st.button("3. Write section drafts", type="primary", width="stretch"):
             try:
                 edited_plan = edited_plan_from_ui(
                     edited_title,
