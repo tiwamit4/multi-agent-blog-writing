@@ -39,9 +39,24 @@ Router ---- closed book -------------------+
 - Tavily and Google API keys for research and image generation
 - Optional for React frontend: [Bun](https://bun.com/docs/installation) 1.4.3+
 
+## Project Layout
+
+```text
+frontend/           Bun server and React/TypeScript UI
+backend/            Python API, agents, tests, and Streamlit app
+  api/              FastAPI endpoints
+  blog_writer/      Shared workflow and integrations
+  ui/               Streamlit UI components
+  .env              API keys (local only)
+  data/             SQLite database
+  output/           Generated articles and images
+docker-compose.yml  Starts frontend and backend together
+```
+
 ## Installation
 
 ```bash
+cd backend
 python -m venv .venv
 .\.venv\Scripts\activate
 python -m pip install --upgrade pip
@@ -56,7 +71,7 @@ source .venv/bin/activate
 
 ## Environment Variables
 
-Create a `.env` file in the project directory:
+Create `backend/.env` with your API keys:
 
 ```dotenv
 GROQ_API_KEY=your_groq_api_key
@@ -77,6 +92,8 @@ Do not commit the `.env` file or expose real API keys.
 
 ## Run the Streamlit Application
 
+Run from the `backend` directory:
+
 ```bash
 streamlit run bwa_frontend.py
 ```
@@ -87,12 +104,12 @@ Then open the local URL printed by Streamlit, normally:
 http://localhost:8501
 ```
 
-Generated articles and images are saved under the `output/` folder.
+Generated articles and images are saved under `backend/output/`.
 
 ## Run Both Services with Docker
 
 Install and start Docker Desktop with Linux containers enabled. Keep your API
-keys in the project root `.env` file as described above, then run from the project
+keys in `backend/.env` as described above, then run from the project
 root:
 
 ```bash
@@ -103,8 +120,8 @@ Open `http://localhost:5173` for the Bun/React frontend, or
 `http://localhost:8000/docs` for the FastAPI documentation. The frontend forwards
 API requests to the backend container and starts after its health check passes.
 
-The database stays in `data/blog_writer.sqlite3`, and generated articles and
-images stay in `output/`. These host folders persist when containers stop or are
+The database stays in `backend/data/blog_writer.sqlite3`, and generated articles and
+images stay in `backend/output/`. These host folders persist when containers stop or are
 recreated. Compose sets the database path inside the container automatically.
 API keys are loaded into the backend at runtime; `.env` files are excluded from
 both image build contexts.
@@ -124,7 +141,8 @@ Compose. Rebuild with `docker compose up --build -d` after code changes.
 Start the optional API and React app in separate terminals:
 
 ```bash
-uvicorn api.main:app --reload
+cd backend
+python -m uvicorn api.main:app --reload
 ```
 
 ```bash

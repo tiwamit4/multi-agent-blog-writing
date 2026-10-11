@@ -24,12 +24,13 @@ bun run dev
 Open http://localhost:5173. Start the API from the project root in a separate terminal:
 
 ```powershell
+cd backend
 python -m uvicorn api.main:app --reload
 ```
 
 To change the frontend port or backend URL, copy `.env.example` to `.env` in this
 directory and edit `PORT` or `API_BASE_URL`. Backend credentials stay in the
-project root's `.env` file.
+`backend/.env` file.
 
 ## Validation and production
 

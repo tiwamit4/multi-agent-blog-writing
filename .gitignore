@@ -2,11 +2,12 @@
 .venv/
 __pycache__/
 *.py[cod]
-data/*.sqlite3
-data/*.sqlite3-shm
-data/*.sqlite3-wal
-runs/
-output/
+backend/data/*.sqlite3
+backend/data/*.sqlite3-shm
+backend/data/*.sqlite3-wal
+backend/runs/
+backend/output/
+.pytest_cache/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/

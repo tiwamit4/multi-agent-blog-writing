@@ -28,48 +28,27 @@ Features
 Project Structure
 
 multi-agent-blog-writing/
-|-- blog_writer/
-|   |-- __init__.py       # Package entrypoint
-|   |-- clients.py        # Shared Groq client configuration
-|   |-- config.py         # Token, search, outline, and generation-size limits
-|   |-- discovery.py      # Trend scouting, gap analysis, and idea ranking
-|   |-- graph.py          # LangGraph assembly and compilation
-|   |-- images.py         # Image planning, generation, and placement
-|   |-- jobs.py           # Background execution and cancellation
-|   |-- metrics.py        # Token, cost, and latency accounting
-|   |-- models.py         # Pydantic schemas and graph state
-|   |-- paths.py          # Safe per-run artifact and image paths
-|   |-- persistence.py    # SQLite checkpointer and durable run registry
-|   |-- research.py       # Tavily search and evidence processing
-|   |-- router.py         # Research-routing decision
-|   `-- writing.py        # Planning, worker fan-out, and section merging
-|-- ui/
-|   |-- __init__.py
-|   |-- sidebar.py
-|   |-- topic_discovery.py
-|   |-- evidence_review.py
-|   |-- outline_editor.py
-|   |-- section_review.py
-|   |-- job_monitor.py
-|   |-- results.py
-|   |-- persistence_panel.py
-|   `-- metrics_panel.py
-|-- api/
-|   |-- __init__.py
-|   |-- main.py           # FastAPI routes around the same graph phases
-|   `-- schemas.py        # API request and response models
-|-- frontend/
+|-- frontend/           # Bun server and React/TypeScript UI
+|   |-- Dockerfile
 |   |-- package.json
 |   |-- bun.lock
-|   |-- server.ts         # Native Bun frontend server and HTML bundler
-|   |-- proxy.ts          # Forwards browser requests to the Python API
+|   |-- server.ts
+|   |-- proxy.ts
 |   |-- index.html
-|   `-- src/              # React UI for evidence, outline, section, and final review
-|-- tests/
-|-- output/              # Generated articles and images
-|-- bwa_backend.py
-|-- bwa_frontend.py
-|-- requirements.txt
+|   `-- src/
+|-- backend/            # Run Python commands from this directory
+|   |-- Dockerfile
+|   |-- .env            # Local credentials, not committed
+|   |-- api/            # FastAPI routes and schemas
+|   |-- blog_writer/    # Shared workflow and agents
+|   |-- ui/             # Existing Streamlit components
+|   |-- tests/
+|   |-- data/           # SQLite database
+|   |-- output/         # Generated articles and images
+|   |-- bwa_backend.py
+|   |-- bwa_frontend.py
+|   `-- requirements.txt
+|-- docker-compose.yml
 `-- README.md
 
 Usage
@@ -78,7 +57,7 @@ Use the Workspace selector in the Streamlit sidebar to switch between blog writi
 
 Token and Cost Tuning
 
-Edit blog_writer/config.py to reduce or increase token usage. The most useful knobs are query count, search results per query, prompt snippet length, evidence count per section, section count, and target words per section.
+Edit backend/blog_writer/config.py to reduce or increase token usage. The most useful knobs are query count, search results per query, prompt snippet length, evidence count per section, section count, and target words per section.
 
 Discover topics:
 
@@ -113,9 +92,9 @@ Write a blog:
 
 Run the React frontend:
 
-1. Install Python dependencies with python -m pip install -r requirements.txt.
+1. Change to the backend directory and install Python dependencies with python -m pip install -r requirements.txt.
 2. Start the API with uvicorn api.main:app --reload.
-3. In a second terminal, run cd frontend.
+3. In a second terminal at the repository root, run cd frontend.
 4. Install Bun 1.4.3+ if needed, then run bun install.
 5. Run bun run dev.
 6. Open the Bun frontend URL, normally http://localhost:5173.
@@ -161,7 +140,7 @@ The FastAPI adapter exposes the same human checkpoints for React:
 
 Persistence
 
-The default database is data/blog_writer.sqlite3. Its write-ahead log files are created beside it while the application is running. These files are excluded by .gitignore.
+The default database is backend/data/blog_writer.sqlite3 (data/blog_writer.sqlite3 when running from backend). Its write-ahead log files are created beside it while the application is running. These files are excluded by .gitignore.
 
 LangGraph writes a state checkpoint after each graph step. A separate blog_runs table in the same database stores UI-oriented metadata and metrics. If the process stops while a job is marked as running, the next application process marks it as interrupted and enables Resume run.
 
@@ -178,6 +157,7 @@ streamlit: command not found
 
 Activate the virtual environment before starting the application:
 
+cd backend
 streamlit run bwa_frontend.py
 
 Missing LangGraph or LangChain modules
