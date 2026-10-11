@@ -1,17 +1,20 @@
+name: multi-agent-blog-writer
+
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    env_file:
-      - ./backend/.env
     environment:
       BLOG_WRITER_DB_PATH: /app/data/blog_writer.sqlite3
+      GROQ_API_KEY: ${GROQ_API_KEY:?Set GROQ_API_KEY in your environment or root .env}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:?Set TAVILY_API_KEY in your environment or root .env}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:?Set GOOGLE_API_KEY in your environment or root .env}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - ./backend/data:/app/data
-      - ./backend/output:/app/output
+      - backend-data:/app/data
+      - backend-output:/app/output
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).close()"]
       interval: 10s
@@ -35,9 +38,13 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "bun", "-e", "const response = await fetch('http://127.0.0.1:5173/'); if (!response.ok) process.exit(1);"]
+      test: ["CMD", "bun", "-e", "const response = await fetch('http://127.0.0.1:5173/'); if (!response.ok) process.exit(1)"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 10s
     restart: unless-stopped
+
+volumes:
+  backend-data:
+  backend-output:
