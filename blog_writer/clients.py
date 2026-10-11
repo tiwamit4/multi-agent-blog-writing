@@ -23,13 +23,15 @@ def validate_api_keys() -> None:
 
 validate_api_keys()
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "qwen/qwen3.8-27b"
 GROQ_TIMEOUT_SECONDS = float(os.getenv("GROQ_TIMEOUT_SECONDS", "60"))
 GROQ_MAX_RETRIES = int(os.getenv("GROQ_MAX_RETRIES", "3"))
 
 llm = ChatGroq(
     model=GROQ_MODEL,
-    temperature=0.2,
+    temperature=0.6,
+    reasoning_effort="default",
+    model_kwargs={"top_p": 0.95},
     timeout=GROQ_TIMEOUT_SECONDS,
     max_retries=GROQ_MAX_RETRIES,
 )

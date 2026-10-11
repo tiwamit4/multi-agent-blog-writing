@@ -4,6 +4,12 @@ from blog_writer import discovery
 from blog_writer.discovery import DiscoveryIdea
 
 
+def test_discovery_expands_ambiguous_ai_ml_topic() -> None:
+    queries = discovery.discovery_queries("AI ML", "2026-10-08")
+    assert all("artificial intelligence and machine learning" in query for query in queries)
+    assert "AI ML" not in " ".join(queries)
+
+
 def result(url: str, published_at: str, title: str = "Source") -> dict:
     return {
         "title": title,

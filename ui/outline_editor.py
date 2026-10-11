@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from blog_writer import config
 from blog_writer.graph import writing_app
 from blog_writer.models import Plan, Task
+from blog_writer.workflow import state_with_plan
 
 
 def plan_as_dict(plan: Any) -> dict[str, Any]:
@@ -185,19 +186,7 @@ def render_outline_editor(draft_state: dict[str, Any] | None, job_is_running: bo
                 st.error(f"Please fix the outline: {error}")
             else:
                 # Reset downstream fields so section writing starts from the edit.
-                writing_state = dict(draft_state)
-                writing_state.update(
-                    {
-                        "plan": edited_plan,
-                        "sections": [],
-                        "target_task_id": None,
-                        "merged_md": "",
-                        "md_with_placeholders": "",
-                        "image_specs": [],
-                        "artifact_path": "",
-                        "final": "",
-                    }
-                )
+                writing_state = state_with_plan(draft_state, edited_plan)
                 st.session_state["draft_state"] = writing_state
                 # Local import avoids a module cycle during Streamlit startup.
                 from ui.job_monitor import start_job

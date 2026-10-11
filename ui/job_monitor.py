@@ -131,71 +131,42 @@ def handle_finished_job(job: GraphJob, snapshot: dict) -> bool:
         if result is None:
             st.session_state["last_error"] = "The job completed without a result."
         else:
-            if snapshot["phase"] == "discovery":
+            phase = snapshot["phase"]
+            if phase == "discovery":
                 st.session_state["discovery_out"] = result
-                st.session_state["workflow_metrics"] = snapshot
-                st.session_state["last_notice"] = (
-                    "Topic discovery completed and ranked ideas are ready."
-                )
-            elif snapshot["phase"] == "evidence":
-                st.session_state["draft_state"] = result
-                st.session_state["last_out"] = result
-                st.session_state["workflow_metrics"] = snapshot
-                st.session_state["last_notice"] = (
-                    "Sources are ready; review, add, or remove them before outlining."
-                )
-            elif snapshot["phase"] == "planning":
-                st.session_state["draft_state"] = result
-                st.session_state["last_out"] = result
-                st.session_state["workflow_metrics"] = merge_metric_snapshots(
-                    st.session_state.get("workflow_metrics"), snapshot
-                )
-                st.session_state["last_notice"] = (
-                    "Outline ready; review and edit it before writing."
-                )
-            elif snapshot["phase"] == "writing":
-                st.session_state["draft_state"] = result
-                st.session_state["last_out"] = result
-                st.session_state["workflow_metrics"] = merge_metric_snapshots(
-                    st.session_state.get("workflow_metrics"), snapshot
-                )
-                st.session_state["last_notice"] = (
-                    "Section drafts are ready; review, edit, or regenerate them."
-                )
-            elif snapshot["phase"] == "section_regeneration":
-                st.session_state["draft_state"] = result
-                st.session_state["last_out"] = result
-                st.session_state["workflow_metrics"] = merge_metric_snapshots(
-                    st.session_state.get("workflow_metrics"), snapshot
-                )
-                st.session_state["last_notice"] = (
-                    "Section regenerated; review the updated draft before finalizing."
-                )
             else:
                 st.session_state["draft_state"] = result
                 st.session_state["last_out"] = result
+
+            if phase in {"discovery", "evidence"}:
+                st.session_state["workflow_metrics"] = snapshot
+            else:
                 st.session_state["workflow_metrics"] = merge_metric_snapshots(
                     st.session_state.get("workflow_metrics"), snapshot
                 )
-                action = (
-                    "Section regenerated"
-                    if snapshot["phase"] == "regeneration"
-                    else "Blog generated"
-                )
-                st.session_state["last_notice"] = f"{action} successfully."
-    elif snapshot["status"] == "cancelled":
-        st.session_state["workflow_metrics"] = merge_metric_snapshots(
-            st.session_state.get("workflow_metrics"), snapshot
-        )
-        st.session_state["last_notice"] = (
-            "Generation cancelled. The active API call may have finished before "
-            "cancellation took effect."
-        )
+
+            notices = {
+                "discovery": "Topic discovery completed and ranked ideas are ready.",
+                "evidence": "Sources are ready; review, add, or remove them before outlining.",
+                "planning": "Outline ready; review and edit it before writing.",
+                "writing": "Section drafts are ready; review, edit, or regenerate them.",
+                "section_regeneration": "Section regenerated; review the updated draft before finalizing.",
+                "regeneration": "Section regenerated successfully.",
+            }
+            st.session_state["last_notice"] = notices.get(
+                phase, "Blog generated successfully."
+            )
     else:
         st.session_state["workflow_metrics"] = merge_metric_snapshots(
             st.session_state.get("workflow_metrics"), snapshot
         )
-        st.session_state["last_error"] = snapshot.get("error") or "Generation failed."
+        if snapshot["status"] == "cancelled":
+            st.session_state["last_notice"] = (
+                "Generation cancelled. The active API call may have finished before "
+                "cancellation took effect."
+            )
+        else:
+            st.session_state["last_error"] = snapshot.get("error") or "Generation failed."
     st.session_state["active_job"] = None
     return True
 
@@ -237,4 +208,3 @@ def render_job_monitor() -> None:
     if snapshot["status"] in TERMINAL_JOB_STATUSES:
         if handle_finished_job(job, snapshot):
             st.rerun(scope="app")
-

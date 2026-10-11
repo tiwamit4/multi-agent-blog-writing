@@ -13,7 +13,7 @@ from .prompt import ORCHESTRATOR_SYSTEM_PROMPT, WORKER_SYSTEM_PROMPT
 
 def orchestrator_node(state: State) -> dict:
     """Create a structured outline from the topic, route mode, and evidence."""
-    planner = llm.with_structured_output(Plan)
+    planner = llm.with_structured_output(Plan, method="json_schema", strict=True)
     mode = state.get("mode", "closed_book")
     evidence = state.get("evidence", [])
     forced_kind = "news_roundup" if mode == "open_book" else None

@@ -1,0 +1,25 @@
+{
+  "name": "multi-agent-blog-writing-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.3",
+  "scripts": {
+    "dev": "bun --hot server.ts",
+    "typecheck": "bun --bun tsc --noEmit",
+    "test": "bun test",
+    "build": "bun run typecheck && bun build --target=bun --production --outdir=dist ./server.ts",
+    "start": "NODE_ENV=production bun ./dist/server.js",
+    "preview": "bun run start"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.9.0"
+  }
+}

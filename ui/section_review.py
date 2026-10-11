@@ -9,6 +9,7 @@ from typing import Any
 import streamlit as st
 
 from blog_writer.graph import finalizing_app, section_draft_regeneration_app
+from blog_writer.workflow import reset_article_fields as reset_downstream_article_fields
 from ui.job_monitor import start_job
 from ui.outline_editor import plan_as_dict
 
@@ -36,21 +37,6 @@ def reviewed_sections(
         (int(task["id"]), edited_sections.get(int(task["id"]), "").strip())
         for task in tasks
     ]
-
-
-def reset_downstream_article_fields(state: dict[str, Any]) -> dict[str, Any]:
-    """Clear final-artifact fields before regenerating or finalizing sections."""
-    updated = dict(state)
-    updated.update(
-        {
-            "merged_md": "",
-            "md_with_placeholders": "",
-            "image_specs": [],
-            "artifact_path": "",
-            "final": "",
-        }
-    )
-    return updated
 
 
 def render_section_review(

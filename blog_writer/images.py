@@ -60,7 +60,9 @@ def validate_image_plan(merged_markdown: str, image_plan: GlobalImagePlan) -> No
 
 def decide_images(state: State) -> dict:
     """Ask whether images are useful and return placeholder-enhanced markdown."""
-    planner = llm.with_structured_output(GlobalImagePlan)
+    planner = llm.with_structured_output(
+        GlobalImagePlan, method="json_schema", strict=True
+    )
     merged_md = state["merged_md"]
     plan = state["plan"]
     if plan is None:

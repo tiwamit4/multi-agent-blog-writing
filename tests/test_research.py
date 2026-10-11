@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from datetime import date
+
+import pytest
+
 from blog_writer.models import EvidenceItem, EvidencePack
 from blog_writer import research
 
@@ -51,7 +55,10 @@ def test_open_book_filter_excludes_old_unknown_and_future_dates() -> None:
 
 
 def test_research_keeps_partial_results_and_reports_failures(monkeypatch) -> None:
-    def fake_search(query: str, max_results: int) -> list[dict]:
+    searches = []
+
+    def fake_search(query: str, max_results: int, **kwargs) -> list[dict]:
+        searches.append(kwargs)
         if query == "broken query":
             raise RuntimeError("temporary search outage")
         return [
@@ -80,7 +87,9 @@ def test_research_keeps_partial_results_and_reports_failures(monkeypatch) -> Non
             )
 
     class FakeLLM:
-        def with_structured_output(self, schema):
+        def with_structured_output(self, schema, *, method, strict):
+            assert method == "json_schema"
+            assert strict is True
             return FakeExtractor()
 
     monkeypatch.setattr(research, "_tavily_search", fake_search)
@@ -98,3 +107,42 @@ def test_research_keeps_partial_results_and_reports_failures(monkeypatch) -> Non
     assert [item.url for item in result["evidence"]] == ["https://example.com/useful"]
     assert len(result["research_errors"]) == 1
     assert "broken query" in result["research_errors"][0]
+    assert all(options == {
+        "topic": "news", "start_date": "2026-06-15", "end_date": "2026-06-22"
+    } for options in searches)
+
+
+@pytest.mark.parametrize("value, expected", [
+    ("Thu, 01 Oct 2026 11:30:00 GMT", date(2026, 10, 1)),
+    ("2026-10-01T11:30:00Z", date(2026, 10, 1)),
+    ("2026-10-01", date(2026, 10, 1)),
+    ("not a date", None),
+    (None, None),
+])
+def test_search_publication_date_formats(value, expected) -> None:
+    assert research._iso_to_date(value) == expected
+
+
+def test_ground_evidence_does_not_accept_model_invented_date() -> None:
+    raw = [{"title": "Undated source", "url": "https://example.com/undated"}]
+    pack = EvidencePack(evidence=[EvidenceItem(
+        title="Undated source", url="https://example.com/undated",
+        published_at="2026-10-01",
+    )])
+    evidence = research._ground_evidence(raw, pack)
+    assert evidence[0].published_at is None
+    assert research._filter_open_book_evidence(evidence, "2026-10-08", 30) == []
+
+
+def test_tavily_normalizes_publication_dates(monkeypatch) -> None:
+    from tavily import TavilyClient
+
+    def fake_search(self, **kwargs):
+        return {"results": [{
+            "title": "Recent research", "url": "https://example.com/research",
+            "published_date": "Thu, 01 Oct 2026 11:30:00 GMT",
+        }]}
+
+    monkeypatch.setattr(TavilyClient, "search", fake_search)
+    results = research._tavily_search("recent research")
+    assert results[0]["published_at"] == "2026-10-01"

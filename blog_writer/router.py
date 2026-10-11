@@ -10,7 +10,9 @@ from .prompt import ROUTER_SYSTEM_PROMPT
 
 def router_node(state: State) -> dict:
     """Classify the topic and produce bounded search settings for research."""
-    decider = llm.with_structured_output(RouterDecision)
+    decider = llm.with_structured_output(
+        RouterDecision, method="json_schema", strict=True
+    )
     decision = decider.invoke(
         [
             SystemMessage(content=ROUTER_SYSTEM_PROMPT),

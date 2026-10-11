@@ -7,3 +7,7 @@ data/*.sqlite3-shm
 data/*.sqlite3-wal
 runs/
 output/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.tsbuildinfo

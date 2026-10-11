@@ -7,6 +7,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
+from email.utils import parsedate_to_datetime
 from typing import List, Optional
 from urllib.parse import urlparse
 
@@ -68,8 +69,12 @@ def _tavily_search(
                             or result.get("raw_content")
                             or ""
                         ).strip()[: config.RAW_SEARCH_SNIPPET_CHARS],
-                        "published_at": result.get("published_date")
-                        or result.get("published_at"),
+                        "published_at": (
+                            published.isoformat()
+                            if (published := _iso_to_date(
+                                result.get("published_date") or result.get("published_at")
+                            )) else None
+                        ),
                         "source": result.get("source")
                         or urlparse(url).netloc,
                         "score": float(result.get("score") or 0.0),
@@ -89,12 +94,16 @@ def _tavily_search(
 
 def _iso_to_date(value: Optional[str]) -> Optional[date]:
     """Parse date-like strings while tolerating missing or malformed values."""
-    if not value:
+    if not isinstance(value, str) or not value.strip():
         return None
+    value = value.strip()
     try:
         return date.fromisoformat(value[:10])
     except (TypeError, ValueError):
-        return None
+        try:
+            return parsedate_to_datetime(value).date()
+        except (TypeError, ValueError, OverflowError):
+            return None
 
 
 def _ground_evidence(raw: List[dict], pack: EvidencePack) -> List[EvidenceItem]:
@@ -112,8 +121,11 @@ def _ground_evidence(raw: List[dict], pack: EvidencePack) -> List[EvidenceItem]:
         grounded[selected.url] = EvidenceItem(
             title=str(source_item.get("title") or selected.title).strip(),
             url=selected.url,
-            published_at=source_item.get("published_at")
-            or selected.published_at,
+            published_at=(
+                published.isoformat()
+                if (published := _iso_to_date(source_item.get("published_at")))
+                else None
+            ),
             snippet=str(source_item.get("snippet") or "").strip(),
             source=str(source_item.get("source") or selected.source or "").strip()
             or None,
@@ -169,10 +181,19 @@ def research_node(state: State) -> dict:
     )
     raw: List[dict] = []
     errors: List[str] = []
+    search_options = {}
+    if state.get("mode") == "open_book":
+        as_of = date.fromisoformat(state["as_of"])
+        search_options = {
+            "topic": "news",
+            "start_date": (as_of - timedelta(days=int(state["recency_days"]))).isoformat(),
+            "end_date": as_of.isoformat(),
+        }
 
     with ThreadPoolExecutor(max_workers=min(RESEARCH_WORKERS, max(1, len(queries)))) as pool:
         futures = {
-            pool.submit(_tavily_search, query, max_results): query for query in queries
+            pool.submit(_tavily_search, query, max_results, **search_options): query
+            for query in queries
         }
         for future in as_completed(futures):
             query = futures[future]
@@ -182,6 +203,8 @@ def research_node(state: State) -> dict:
                 errors.append(f"{query}: {error}")
 
     if not raw:
+        if not errors:
+            errors.append("Web search returned no results for the requested queries.")
         return {"evidence": [], "research_errors": errors}
 
     # The selector sees trimmed raw results; final snippets still come from Tavily.
@@ -194,7 +217,9 @@ def research_node(state: State) -> dict:
         }
         for item in raw[: config.RESEARCH_PROMPT_RESULT_LIMIT]
     ]
-    extractor = llm.with_structured_output(EvidencePack)
+    extractor = llm.with_structured_output(
+        EvidencePack, method="json_schema", strict=True
+    )
     try:
         pack = extractor.invoke(
             [
@@ -224,5 +249,10 @@ def research_node(state: State) -> dict:
             state["as_of"],
             int(state["recency_days"]),
         )
+        if not evidence:
+            errors.append(
+                "Search returned sources, but none of the selected sources had a "
+                "verified publication date inside the requested date window."
+            )
 
     return {"evidence": evidence, "research_errors": errors}

@@ -37,6 +37,7 @@ Router ---- closed book -------------------+
 - Python 3.12 recommended
 - A Groq API key
 - Tavily and Google API keys for research and image generation
+- Optional for React frontend: [Bun](https://bun.com/docs/installation) 1.4.3+
 
 ## Installation
 
@@ -74,7 +75,7 @@ BLOG_WRITER_DB_PATH=data/blog_writer.sqlite3
 
 Do not commit the `.env` file or expose real API keys.
 
-## Run the Application
+## Run the Streamlit Application
 
 ```bash
 streamlit run bwa_frontend.py
@@ -87,3 +88,65 @@ http://localhost:8501
 ```
 
 Generated articles and images are saved under the `output/` folder.
+
+## Run Both Services with Docker
+
+Install and start Docker Desktop with Linux containers enabled. Keep your API
+keys in the project root `.env` file as described above, then run from the project
+root:
+
+```bash
+docker compose up --build -d
+```
+
+Open `http://localhost:5173` for the Bun/React frontend, or
+`http://localhost:8000/docs` for the FastAPI documentation. The frontend forwards
+API requests to the backend container and starts after its health check passes.
+
+The database stays in `data/blog_writer.sqlite3`, and generated articles and
+images stay in `output/`. These host folders persist when containers stop or are
+recreated. Compose sets the database path inside the container automatically.
+API keys are loaded into the backend at runtime; `.env` files are excluded from
+both image build contexts.
+
+View logs or stop both services:
+
+```bash
+docker compose logs -f
+docker compose down
+```
+
+Stop any locally running API or frontend using ports 8000 or 5173 before starting
+Compose. Rebuild with `docker compose up --build -d` after code changes.
+
+## Run the React Frontend
+
+Start the optional API and React app in separate terminals:
+
+```bash
+uvicorn api.main:app --reload
+```
+
+```bash
+cd frontend
+bun install
+bun run dev
+```
+
+The React app talks to the API at `http://localhost:8000` by default.
+
+Open `http://localhost:5173` for the React frontend. `frontend/server.ts` uses
+Bun's native HTTP server and HTML bundler to serve React, with hot reloading.
+Browser requests to `/api/*` are forwarded to the existing Python API.
+Set `API_BASE_URL` in `frontend/.env` to change the backend URL.
+After installing Bun on Windows, reopen PowerShell so `bun` is available on PATH.
+
+To verify a reproducible frontend build:
+
+```bash
+cd frontend
+bun install --frozen-lockfile
+bun test
+bun run build
+bun run start
+```

@@ -11,8 +11,8 @@ from uuid import UUID
 from langchain_core.callbacks import BaseCallbackHandler
 
 
-GROQ_INPUT_COST_PER_MILLION = 0.59
-GROQ_OUTPUT_COST_PER_MILLION = 0.79
+GROQ_INPUT_COST_PER_MILLION = 0.80
+GROQ_OUTPUT_COST_PER_MILLION = 4.00
 
 
 def _token_usage(response: Any) -> dict[str, int]:

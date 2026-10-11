@@ -23,6 +23,7 @@ Features
 - Displays the plan, evidence, Markdown preview, images, and execution logs.
 - Saves generated blogs locally and allows previous Markdown files to be loaded.
 - Downloads Markdown, images, or a combined ZIP bundle.
+- Keeps the Streamlit UI and adds an optional React/FastAPI interface for the same workflow.
 
 Project Structure
 
@@ -53,6 +54,17 @@ multi-agent-blog-writing/
 |   |-- results.py
 |   |-- persistence_panel.py
 |   `-- metrics_panel.py
+|-- api/
+|   |-- __init__.py
+|   |-- main.py           # FastAPI routes around the same graph phases
+|   `-- schemas.py        # API request and response models
+|-- frontend/
+|   |-- package.json
+|   |-- bun.lock
+|   |-- server.ts         # Native Bun frontend server and HTML bundler
+|   |-- proxy.ts          # Forwards browser requests to the Python API
+|   |-- index.html
+|   `-- src/              # React UI for evidence, outline, section, and final review
 |-- tests/
 |-- output/              # Generated articles and images
 |-- bwa_backend.py
@@ -62,7 +74,7 @@ multi-agent-blog-writing/
 
 Usage
 
-Use the Workspace selector in the sidebar to switch between blog writing and topic discovery.
+Use the Workspace selector in the Streamlit sidebar to switch between blog writing and topic discovery. The optional React frontend currently focuses on the blog-writing workflow.
 
 Token and Cost Tuning
 
@@ -99,13 +111,24 @@ Write a blog:
 11. Regenerate individual sections from the Plan tab later when needed.
 12. Review and download the Markdown, images, or combined bundle.
 
+Run the React frontend:
+
+1. Install Python dependencies with python -m pip install -r requirements.txt.
+2. Start the API with uvicorn api.main:app --reload.
+3. In a second terminal, run cd frontend.
+4. Install Bun 1.4.3+ if needed, then run bun install.
+5. Run bun run dev.
+6. Open the Bun frontend URL, normally http://localhost:5173.
+
+Set API_BASE_URL in frontend/.env before bun run dev if the API is not running at http://127.0.0.1:8000. Bun's native server in frontend/server.ts bundles React and proxies /api/* requests to this backend.
+
 Generated Markdown files are saved under output/runs/<run-id>/article.md, so blogs with the same title cannot overwrite one another. Each run stores its images separately under output/images/<blog-slug>/<run-id>/.
 
 The Persistent runs panel lists recent SQLite-backed operations. Completed runs can be reopened. Interrupted, cancelled, and failed runs can be resumed from the latest successful LangGraph checkpoint. The database stores the plan, evidence, completed sections, metrics, logs, elapsed time, errors, and run status.
 
 Cancellation is cooperative: it takes effect after the currently active external API request returns. Completed sections are not published as a final result for a cancelled job.
 
-The cost shown in the interface estimates Groq text inference only. It uses the current documented pricing for llama-3.3-70b-versatile: $0.59 per million input tokens and $0.79 per million output tokens. Tavily and Gemini costs are excluded.
+The cost shown in the interface estimates Groq text inference only. It uses the documented pricing for qwen/qwen3.8-27b: $0.80 per million input tokens and $4.00 per million output tokens. Tavily and Gemini costs are excluded.
 
 Running the Backend Directly
 
@@ -126,6 +149,15 @@ The interface uses focused graph entrypoints from blog_writer.graph:
 - section_draft_regeneration_app for replacing one draft section before finalization
 - finalizing_app for merging approved section drafts, planning images, and saving artifacts
 - section_regeneration_app for replacing one section after finalization and rebuilding the article
+
+The FastAPI adapter exposes the same human checkpoints for React:
+
+- POST /runs/evidence starts routing and optional research
+- GET /runs/{run_id} polls job status and current state
+- POST /runs/{run_id}/approve-sources starts outline generation
+- POST /runs/{run_id}/approve-outline starts section draft generation
+- POST /runs/{run_id}/regenerate-section rewrites one section draft
+- POST /runs/{run_id}/approve-sections builds the final article
 
 Persistence
 

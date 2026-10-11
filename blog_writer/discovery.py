@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from typing import TypedDict
@@ -62,6 +63,8 @@ def discovery_queries(seed_topic: str, as_of: str) -> list[str]:
     """Build a small set of searches covering freshness and evergreen gaps."""
     year = date.fromisoformat(as_of).year
     seed = seed_topic.strip()
+    if re.fullmatch(r"ai[\s/&,-]+ml", seed, flags=re.IGNORECASE):
+        seed = "artificial intelligence and machine learning"
     return [
         f"{seed} latest developments announcements {year}",
         f"{seed} new releases research benchmarks {year}",
@@ -151,7 +154,9 @@ def gap_analyst_node(state: DiscoveryState) -> dict:
         }
         for item in raw_results[: config.DISCOVERY_PROMPT_RESULT_LIMIT]
     ]
-    analyst = llm.with_structured_output(DiscoveryIdeaSet)
+    analyst = llm.with_structured_output(
+        DiscoveryIdeaSet, method="json_schema", strict=True
+    )
     report = analyst.invoke(
         [
             SystemMessage(content=GAP_ANALYST_SYSTEM_PROMPT),

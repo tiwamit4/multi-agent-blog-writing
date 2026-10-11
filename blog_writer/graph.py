@@ -24,15 +24,7 @@ from .writing import (
 
 def build_reducer_subgraph():
     """Build the shared merge/image/artifact tail used after section writing."""
-    graph = StateGraph(State)
-    graph.add_node("merge_content", merge_content)
-    graph.add_node("decide_images", decide_images)
-    graph.add_node("generate_and_place_images", generate_and_place_images)
-    graph.add_edge(START, "merge_content")
-    graph.add_edge("merge_content", "decide_images")
-    graph.add_edge("decide_images", "generate_and_place_images")
-    graph.add_edge("generate_and_place_images", END)
-    return graph.compile()
+    return build_finalizing_graph(graph_checkpointer=None)
 
 
 def build_graph(graph_checkpointer=checkpointer):

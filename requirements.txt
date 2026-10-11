@@ -2,6 +2,10 @@
 streamlit>=1.51,<2.0
 pandas>=2.3,<3.0
 
+# Optional React API backend
+fastapi>=0.116,<1.0
+uvicorn[standard]>=0.35,<1.0
+
 # Agent graph and LLM integration
 pydantic>=2.12,<3.0
 langgraph>=1.2,<2.0

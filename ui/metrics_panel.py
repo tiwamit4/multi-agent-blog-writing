@@ -54,8 +54,8 @@ def render_metrics(snapshot: dict, title: str = "Usage and performance") -> None
         "Est. Groq cost", f"${metrics.get('estimated_cost_usd', 0.0):.5f}"
     )
     st.caption(
-        "Text cost estimate uses $0.59/M input tokens and $0.79/M output tokens for "
-        "llama-3.3-70b-versatile. Tavily and Gemini charges are not included."
+        "Text cost estimate uses $0.80/M input tokens and $4.00/M output tokens for "
+        "qwen/qwen3.8-27b. Tavily and Gemini charges are not included."
     )
 
     node_latency = metrics.get("node_latency_seconds", {})
@@ -235,4 +235,3 @@ def render_workflow_metrics() -> None:
     if workflow_metrics and not st.session_state.get("active_job"):
         with st.container(border=True):
             render_metrics(workflow_metrics, "Workflow total")
-

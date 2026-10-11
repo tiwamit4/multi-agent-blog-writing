@@ -69,7 +69,9 @@ def test_decide_images_skips_invalid_image_plan(sample_state) -> None:
             )
 
     class FakeLLM:
-        def with_structured_output(self, schema):
+        def with_structured_output(self, schema, *, method, strict):
+            assert method == "json_schema"
+            assert strict is True
             return FakePlanner()
 
     sample_state["merged_md"] = "# Article\n\nBody."

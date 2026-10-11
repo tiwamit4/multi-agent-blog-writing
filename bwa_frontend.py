@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date
-from typing import Any
-from uuid import uuid4
-
 import streamlit as st
 
-from blog_writer import config
 from blog_writer.app_logging import configure_terminal_logging
 from blog_writer.graph import evidence_app
 from blog_writer.jobs import TERMINAL_JOB_STATUSES
+from blog_writer.workflow import initial_state
 from ui.job_monitor import render_job_monitor, start_job
 from ui.metrics_panel import render_workflow_metrics
 from ui.evidence_review import render_evidence_review
@@ -20,30 +16,6 @@ from ui.results import render_results
 from ui.section_review import render_section_review
 from ui.sidebar import render_sidebar
 from ui.topic_discovery import render_discovery_results, render_discovery_sidebar
-
-
-def initial_state(topic: str, as_of: date) -> dict[str, Any]:
-    """Create the default LangGraph state for a new blog-planning run."""
-    return {
-        "topic": topic.strip(),
-        "blog_id": uuid4().hex[:12],
-        "mode": "",
-        "needs_research": False,
-        "queries": [],
-        "max_results_per_query": config.DEFAULT_MAX_RESULTS_PER_QUERY,
-        "research_errors": [],
-        "evidence": [],
-        "plan": None,
-        "as_of": as_of.isoformat(),
-        "recency_days": 7,
-        "sections": [],
-        "target_task_id": None,
-        "merged_md": "",
-        "md_with_placeholders": "",
-        "image_specs": [],
-        "artifact_path": "",
-        "final": "",
-    }
 
 
 def initialize_session_state() -> None:

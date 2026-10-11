@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from blog_writer.graph import planning_app
 from blog_writer.models import EvidenceItem
+from blog_writer.workflow import state_with_evidence as state_with_approved_evidence
 from ui.job_monitor import start_job
 
 
@@ -87,36 +88,6 @@ def reviewed_evidence_from_ui(edited_rows: pd.DataFrame) -> list[EvidenceItem]:
         fields["source"] = fields["source"] or _source_from_url(fields["url"])
         reviewed.append(EvidenceItem(**fields))
     return reviewed
-
-
-def state_with_approved_evidence(
-    state: dict[str, Any],
-    evidence: list[EvidenceItem],
-) -> dict[str, Any]:
-    """Reset downstream fields and attach human-approved evidence for planning."""
-    mode = state.get("mode") or "closed_book"
-    if evidence and mode == "closed_book":
-        mode = "hybrid"
-    if not evidence:
-        mode = "closed_book"
-
-    updated = dict(state)
-    updated.update(
-        {
-            "mode": mode,
-            "needs_research": bool(evidence),
-            "evidence": evidence,
-            "plan": None,
-            "sections": [],
-            "target_task_id": None,
-            "merged_md": "",
-            "md_with_placeholders": "",
-            "image_specs": [],
-            "artifact_path": "",
-            "final": "",
-        }
-    )
-    return updated
 
 
 def render_evidence_review(
