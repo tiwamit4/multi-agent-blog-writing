@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from blog_writer.models import EvidenceItem, Plan
 
@@ -16,6 +16,15 @@ class StartEvidenceRequest(BaseModel):
     topic: str = Field(..., min_length=1)
     as_of: date = Field(default_factory=date.today)
     recency_days: int = Field(default=7, ge=1, le=365)
+
+
+class StartDiscoveryRequest(BaseModel):
+    """Inputs for the existing topic-discovery workflow."""
+
+    seed_topic: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    as_of: date = Field(default_factory=date.today)
+    lookback_days: int = Field(default=30, ge=1, le=90)
+    max_ideas: int = Field(default=8, ge=3, le=12)
 
 
 class RunStartResponse(BaseModel):

@@ -71,3 +71,18 @@ export function approveSections(runId: string, sections: SectionDraft[]) {
     }
   );
 }
+
+export function listRuns() {
+  return request<RunSnapshot[]>("/runs?limit=50");
+}
+
+export function startDiscovery(seedTopic: string, asOf: string, lookbackDays: number, maxIdeas: number) {
+  return request<{ run_id: string; phase: string; status: string }>("/runs/discovery", {
+    method: "POST",
+    body: JSON.stringify({ seed_topic: seedTopic, as_of: asOf, lookback_days: lookbackDays, max_ideas: maxIdeas })
+  });
+}
+
+export function cancelRun(runId: string) {
+  return request<RunSnapshot>(`/runs/${runId}/cancel`, { method: "POST" });
+}

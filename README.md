@@ -92,11 +92,15 @@ Do not commit the `.env` file or expose real API keys.
 
 ## Run the Streamlit Application
 
-Run from the `backend` directory:
+Run directly from the repository root (`D:\code\multi-agent-blog-writing`):
 
 ```bash
 streamlit run bwa_frontend.py
 ```
+
+Alternatively, use `python -m streamlit run bwa_frontend.py`. The root entrypoint
+loads `backend/.env` and launches the existing app in `backend/bwa_frontend.py`.
+Running the same command from `backend` continues to work.
 
 Then open the local URL printed by Streamlit, normally:
 
@@ -153,7 +157,9 @@ bun run dev
 
 The React app talks to the API at `http://localhost:8000` by default.
 
-Open `http://localhost:5173` for the React frontend. `frontend/server.ts` uses
+Open `http://localhost:5173` for the React frontend. Select Blog Writer or
+Topic Discovery from the Workspace control in the sidebar. Discovery ideas can
+be passed directly to Blog Writer with "Write this topic". `frontend/server.ts` uses
 Bun's native HTTP server and HTML bundler to serve React, with hot reloading.
 Browser requests to `/api/*` are forwarded to the existing Python API.
 Set `API_BASE_URL` in `frontend/.env` to change the backend URL.

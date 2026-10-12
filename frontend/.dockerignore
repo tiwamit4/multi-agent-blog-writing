@@ -1,6 +1,14 @@
-node_modules
-dist
-.git
+# Keep source, lockfile, and tests available to the Bun build/typecheck.
+.git/
 .env
 .env.*
+**/.env
+**/.env.*
+node_modules/
+dist/
+.vite/
+.bun/
+coverage/
 *.tsbuildinfo
+.DS_Store
+Thumbs.db

@@ -1,7 +1,9 @@
 # Bun frontend
 
 This React/TypeScript frontend uses Bun's native HTTP server, HTML bundler,
-and hot reloading. The Python backend runs separately.
+and hot reloading. It offers both Blog Writer and Topic Discovery workspaces.
+Topic Discovery ranks sourced ideas and can send a selected topic to Blog Writer.
+The Python backend runs separately.
 
 ## Source code
 
@@ -9,7 +11,8 @@ and hot reloading. The Python backend runs separately.
 - `proxy.ts`: forwards `/api/*` requests to the Python API.
 - `index.html`: HTML entry point imported by Bun.
 - `src/main.tsx`: mounts React.
-- `src/App.tsx`: blog workflow UI.
+- `src/App.tsx`: workspace switcher and blog workflow UI.
+- `src/DiscoveryWorkspace.tsx`: topic scouting, ranked ideas, and blog handoff.
 - `src/api.ts`: browser requests to `/api`.
 
 ## Development
@@ -24,13 +27,20 @@ bun run dev
 Open http://localhost:5173. Start the API from the project root in a separate terminal:
 
 ```powershell
-cd backend
+cd ..\backend
 python -m uvicorn api.main:app --reload
 ```
 
-To change the frontend port or backend URL, copy `.env.example` to `.env` in this
-directory and edit `PORT` or `API_BASE_URL`. Backend credentials stay in the
-`backend/.env` file.
+To change the frontend port or backend URL, create `frontend/.env` with the
+settings you need. For local development, the defaults are:
+
+```dotenv
+HOST=127.0.0.1
+PORT=5173
+API_BASE_URL=http://127.0.0.1:8000
+```
+
+Backend credentials stay in `backend/.env`.
 
 ## Validation and production
 

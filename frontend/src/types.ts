@@ -33,6 +33,11 @@ export type SectionDraft = {
 };
 
 export type RunState = {
+  seed_topic?: string;
+  as_of?: string;
+  discovery_queries?: string[];
+  discovery_errors?: string[];
+  ranked_ideas?: DiscoveryIdea[];
   topic?: string;
   mode?: string;
   queries?: string[];
@@ -41,6 +46,22 @@ export type RunState = {
   plan?: Plan | null;
   sections?: [number, string][];
   final?: string;
+};
+
+export type DiscoveryIdea = {
+  rank: number;
+  title: string;
+  angle: string;
+  why_trending: string;
+  content_gap: string;
+  score: number;
+  freshness_score: number;
+  evidence_score: number;
+  gap_strength: number;
+  evidence_count: number;
+  freshest_evidence_date?: string | null;
+  keywords?: string[];
+  evidence?: EvidenceItem[];
 };
 
 export type RunSnapshot = {

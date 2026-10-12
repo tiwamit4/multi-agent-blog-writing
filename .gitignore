@@ -1,14 +1,31 @@
-.env
-.venv/
-__pycache__/
+# Local environment settings and credentials
+**/.env
+**/.env.*
+!**/.env.example
+frontend/.env.example
+
+# Python environments and caches
+**/.venv/
+**/venv/
+**/__pycache__/
 *.py[cod]
-backend/data/*.sqlite3
-backend/data/*.sqlite3-shm
-backend/data/*.sqlite3-wal
-backend/runs/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Generated database and article files
+backend/data/
 backend/output/
-.pytest_cache/
+backend/runs/
+
+# Bun / frontend build output
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/.bun/
 frontend/*.tsbuildinfo
+frontend/coverage/
+
+# Local OS and editor files
+.DS_Store
+Thumbs.db

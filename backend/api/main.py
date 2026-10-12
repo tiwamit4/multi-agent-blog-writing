@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from blog_writer.app_logging import configure_terminal_logging
 from blog_writer.graph import (
+    discovery_app,
     evidence_app,
     finalizing_app,
     planning_app,
@@ -34,6 +35,7 @@ from .schemas import (
     RunStartResponse,
     SectionsApprovalRequest,
     StartEvidenceRequest,
+    StartDiscoveryRequest,
 )
 
 
@@ -138,6 +140,23 @@ def start_evidence_run(payload: StartEvidenceRequest) -> RunStartResponse:
         initial_state(payload.topic, payload.as_of, payload.recency_days),
         "evidence",
     )
+
+
+@app.post("/runs/discovery", response_model=RunStartResponse)
+def start_discovery_run(payload: StartDiscoveryRequest) -> RunStartResponse:
+    """Discover and rank technical topics using the shared agent graph."""
+    state = {
+        "seed_topic": payload.seed_topic,
+        "as_of": payload.as_of.isoformat(),
+        "lookback_days": payload.lookback_days,
+        "max_ideas": payload.max_ideas,
+        "discovery_queries": [],
+        "raw_results": [],
+        "discovery_errors": [],
+        "idea_candidates": [],
+        "ranked_ideas": [],
+    }
+    return _start_phase(discovery_app, state, "discovery")
 
 
 @app.get("/runs", response_model=list[RunSnapshotResponse])
