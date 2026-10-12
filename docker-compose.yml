@@ -2,6 +2,7 @@ name: multi-agent-blog-writer
 
 services:
   backend:
+    container_name: blog-writer-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -23,6 +24,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    container_name: blog-writer-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
