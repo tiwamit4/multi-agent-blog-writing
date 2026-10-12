@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import App from "../src/App";
+import ArticlePreview from "../src/ArticlePreview";
 import OutlineEditor from "../src/OutlineEditor";
 import type { Plan } from "../src/types";
 import { DiscoveryResults, discoveryPrompt } from "../src/DiscoveryWorkspace";
@@ -40,4 +41,13 @@ test("outline review renders editable plan fields and section options", () => {
   expect(html).toContain("Getting started");
   expect(html).toContain("Citations");
   expect(html).not.toContain("code-editor");
+});
+
+test("article preview renders Markdown and serves local images through the run API", () => {
+  const html = renderToStaticMarkup(<ArticlePreview runId="run-1" markdown={
+    "# A blog\n\n![Diagram](output/images/a_blog/blog123/diagram.png)\n\n| Step | Result |\n| --- | --- |\n| One | Done |"
+  } />);
+  expect(html).toContain("<h1>A blog</h1>");
+  expect(html).toContain("/api/runs/run-1/image?path=output%2Fimages%2Fa_blog%2Fblog123%2Fdiagram.png");
+  expect(html).toContain("<table>");
 });

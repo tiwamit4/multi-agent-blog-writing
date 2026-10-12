@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ArticlePreview from "./ArticlePreview";
 import {
   approveOutline,
   approveSections,
@@ -45,7 +46,7 @@ function BlogWriterApp({ workspace, onWorkspace, handoff }: {
 }) {
   const [savedRuns, setSavedRuns] = useState<RunSnapshot[]>([]);
   const [historyError, setHistoryError] = useState("");
-  const [resultTab, setResultTab] = useState("Markdown");
+  const [resultTab, setResultTab] = useState("Preview");
   const [busy, setBusy] = useState(false);
   const [topic, setTopic] = useState("");
   const [asOf, setAsOf] = useState(today());
@@ -140,6 +141,7 @@ function BlogWriterApp({ workspace, onWorkspace, handoff }: {
     (run?.phase === "writing" || run?.phase === "section_regeneration") &&
     run.status === "completed";
   const finalMarkdown = run?.current_state.final ?? "";
+  const finalRunId = run?.run_id ?? "";
   const plan = run?.current_state.plan ?? null;
   const tasksById = useMemo(() => {
     const entries = (plan?.tasks ?? []).map((task) => [task.id, task.title] as const);
@@ -369,15 +371,17 @@ function BlogWriterApp({ workspace, onWorkspace, handoff }: {
           <section className="panel">
             <header>
               <h2>Generated blog</h2>
-              <button onClick={() => {
+              <div className="result-actions"><button onClick={() => {
                 const url = URL.createObjectURL(new Blob([finalMarkdown], { type: "text/markdown;charset=utf-8" }));
                 const link = document.createElement("a"); link.href = url; link.download = "article.md"; link.click();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
               }}>Download Markdown</button>
+              <a className="button-link" href={`/api/runs/${encodeURIComponent(finalRunId)}/bundle`} download>Download ZIP</a></div>
             </header>
             <div className="tabs" role="tablist" aria-label="Blog results">
-              {["Markdown", "Plan", "Evidence"].map(tab => <button key={tab} role="tab" aria-selected={resultTab === tab} onClick={() => setResultTab(tab)}>{tab}</button>)}
+              {["Preview", "Markdown", "Plan", "Evidence"].map(tab => <button key={tab} role="tab" aria-selected={resultTab === tab} onClick={() => setResultTab(tab)}>{tab}</button>)}
             </div>
+            {resultTab === "Preview" && <ArticlePreview markdown={finalMarkdown} runId={finalRunId} />}
             {resultTab === "Markdown" && <pre className="markdown-preview">{finalMarkdown}</pre>}
             {resultTab === "Plan" && <pre>{JSON.stringify(plan, null, 2)}</pre>}
             {resultTab === "Evidence" && <ul>{(run?.current_state.evidence ?? []).map((item, index) => <li key={index}><a href={/^https?:\/\//i.test(item.url) ? item.url : undefined} target="_blank" rel="noreferrer">{item.title}</a></li>)}</ul>}

@@ -128,9 +128,11 @@ Open `http://localhost:5173` for the Bun/React frontend, or
 `http://localhost:8000/docs` for the FastAPI documentation. The frontend forwards
 API requests to the backend container and starts after its health check passes.
 
-The database stays in `backend/data/blog_writer.sqlite3`, and generated articles and
-images stay in `backend/output/`. These host folders persist when containers stop or are
-recreated. Compose sets the database path inside the container automatically.
+The Docker backend stores its database and generated output in the `backend-data`
+and `backend-output` named volumes. These survive `docker compose down` and
+container rebuilds, but are separate from the local `backend/data/` and
+`backend/output/` folders used by Streamlit. Do not use `docker compose down -v`
+if you want to keep the blogs saved in Docker.
 API keys are loaded into the backend at runtime; `.env` files are excluded from
 both image build contexts.
 
@@ -168,6 +170,8 @@ Bun's native HTTP server and HTML bundler to serve React, with hot reloading.
 Browser requests to `/api/*` are forwarded to the existing Python API.
 In the Bun sidebar, use **Past blogs** to delete a finished article or
 **Persistent runs** to delete a completed or failed run. Both ask for confirmation.
+Open a finished blog to see the rendered article and its images. **Download ZIP**
+includes the Markdown and generated images with working relative image paths.
 Set `API_BASE_URL` in `frontend/.env` to change the backend URL.
 After installing Bun on Windows, reopen PowerShell so `bun` is available on PATH.
 

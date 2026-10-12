@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from io import BytesIO
+from pathlib import Path, PurePosixPath
 from typing import Any
+import mimetypes
+import zipfile
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
 
 from blog_writer.app_logging import configure_terminal_logging
 from blog_writer.graph import (
@@ -20,7 +24,7 @@ from blog_writer.graph import (
 )
 from blog_writer.jobs import GraphJob, TERMINAL_JOB_STATUSES
 from blog_writer.persistence import run_store
-from blog_writer.paths import IMAGES_ROOT, RUNS_ROOT
+from blog_writer.paths import IMAGES_ROOT, RUNS_ROOT, is_within, safe_slug
 from blog_writer.blog_deletion import (
     BlogDeleteConflictError,
     BlogNotFoundError,
@@ -176,6 +180,59 @@ def list_runs(limit: int = 20) -> list[RunSnapshotResponse]:
 def get_run(run_id: str) -> RunSnapshotResponse:
     """Fetch the latest state for a live or persisted run."""
     return _get_snapshot(run_id)
+
+
+def _final_article(run_id: str) -> tuple[dict[str, Any], str, Path]:
+    """Find a completed article and its own image directory."""
+    record = run_store.get_run(run_id)
+    if record is None or record["status"] != "completed":
+        raise HTTPException(status_code=404, detail="Completed article not found.")
+    state = record["state"]
+    markdown = state.get("final") or ""
+    blog_id = str(state.get("blog_id") or "")
+    if not markdown or not blog_id.isascii() or not blog_id.isalnum():
+        raise HTTPException(status_code=404, detail="Completed article not found.")
+    plan = state.get("plan")
+    title = getattr(plan, "blog_title", None) or state.get("topic") or "blog"
+    images_dir = IMAGES_ROOT / safe_slug(title) / blog_id
+    return state, markdown, images_dir
+
+
+@app.get("/runs/{run_id}/image")
+def get_article_image(run_id: str, path: str = Query(...)) -> FileResponse:
+    """Serve an image referenced by this article, confined to its image folder."""
+    _, _, images_dir = _final_article(run_id)
+    source = PurePosixPath(path)
+    if source.is_absolute() or ".." in source.parts or len(source.parts) < 5:
+        raise HTTPException(status_code=404, detail="Image not found.")
+    expected_prefix = ("output", "images", images_dir.parent.name, images_dir.name)
+    if source.parts[:4] != expected_prefix:
+        raise HTTPException(status_code=404, detail="Image not found.")
+    image = images_dir.joinpath(*source.parts[4:])
+    mime, _ = mimetypes.guess_type(image.name)
+    if mime not in {"image/png", "image/jpeg", "image/webp", "image/gif"} or not is_within(image, images_dir) or not image.is_file():
+        raise HTTPException(status_code=404, detail="Image not found.")
+    return FileResponse(image, media_type=mime, headers={"X-Content-Type-Options": "nosniff"})
+
+
+@app.get("/runs/{run_id}/bundle")
+def download_article_bundle(run_id: str) -> StreamingResponse:
+    """Download Markdown with image paths that resolve inside the ZIP."""
+    state, markdown, images_dir = _final_article(run_id)
+    title = getattr(state.get("plan"), "blog_title", None) or state.get("topic") or "blog"
+    slug = safe_slug(title)
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(f"{slug}.md", markdown)
+        if images_dir.is_dir() and is_within(images_dir, IMAGES_ROOT):
+            for image in sorted(images_dir.rglob("*")):
+                mime, _ = mimetypes.guess_type(image.name)
+                if image.is_file() and is_within(image, images_dir) and mime in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
+                    archive.write(image, arcname=f"output/images/{images_dir.parent.name}/{images_dir.name}/{image.relative_to(images_dir).as_posix()}")
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/zip", headers={
+        "Content-Disposition": f'attachment; filename="{slug}_bundle.zip"',
+    })
 
 
 @app.delete("/runs/{run_id}/blog")
