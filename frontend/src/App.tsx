@@ -7,7 +7,8 @@ import {
   regenerateSection,
   startEvidence,
   listRuns,
-  cancelRun
+  cancelRun,
+  deleteBlog
 } from "./api";
 import DiscoveryWorkspace from "./DiscoveryWorkspace";
 import OutlineEditor from "./OutlineEditor";
@@ -76,6 +77,23 @@ function BlogWriterApp({ workspace, onWorkspace, handoff }: {
     setTopic(snapshot.current_state.topic ?? "");
     setError("");
     setPollError("");
+  }
+
+  async function removeBlog(snapshot: RunSnapshot) {
+    const title = snapshot.current_state.plan?.blog_title ?? snapshot.current_state.topic ?? "this blog";
+    if (!window.confirm(`Delete "${title}" and all its saved runs, article, and images? This cannot be undone.`)) return;
+    await performAction(async () => {
+      await deleteBlog(snapshot.run_id);
+      if (run && run.current_state.blog_id === snapshot.current_state.blog_id) {
+        setRun(null);
+        setRunId("");
+        setEvidence([]);
+        setPlanJson("");
+        setSections([]);
+      }
+      setSavedRuns(previous => previous.filter(item => item.current_state.blog_id !== snapshot.current_state.blog_id));
+      await refreshHistory();
+    });
   }
 
   useEffect(() => {
@@ -206,16 +224,24 @@ function BlogWriterApp({ workspace, onWorkspace, handoff }: {
         <div className="sidebar-group">
           <h3>Past blogs</h3>
           {savedRuns.some(item => item.current_state.final) ? savedRuns.filter(item => item.current_state.final).map(item => (
-            <button className="history-item" disabled={isActive || busy} key={item.run_id} onClick={() => openRun(item)}>{item.current_state.plan?.blog_title ?? item.current_state.topic ?? "Saved blog"}</button>
+            <div className="saved-blog-row" key={item.run_id}>
+              <button className="history-item" disabled={isActive || busy} onClick={() => openRun(item)}>{item.current_state.plan?.blog_title ?? item.current_state.topic ?? "Saved blog"}</button>
+              <button className="delete-button" type="button" aria-label={`Delete ${item.current_state.plan?.blog_title ?? item.current_state.topic ?? "saved blog"}`} disabled={isActive || busy} onClick={() => void removeBlog(item)}>Delete</button>
+            </div>
           )) : <p className="caption">No saved blogs found.</p>}
         </div>
         <div className="sidebar-group">
           <h3>Persistent runs</h3>
           <button disabled={busy} onClick={() => void refreshHistory()}>Refresh runs</button>
           {historyError && <p role="alert" className="caption">{historyError}</p>}
-          {savedRuns.map(item => <button className="history-item" disabled={isActive || busy} key={item.run_id} onClick={() => openRun(item)}>
-            {item.current_state.topic ?? item.run_id.slice(0, 8)}<small>{item.phase} ? {item.status}</small>
-          </button>)}
+          {savedRuns.map(item => <div className="saved-blog-row" key={item.run_id}>
+            <button className="history-item" disabled={isActive || busy} onClick={() => openRun(item)}>
+              {item.current_state.topic ?? item.run_id.slice(0, 8)}<small>{item.phase} · {item.status}</small>
+            </button>
+            {terminalStatuses.has(item.status) && <button className="delete-button" type="button"
+              aria-label={`Delete ${item.status} run for ${item.current_state.topic ?? item.run_id.slice(0, 8)}`}
+              disabled={isActive || busy} onClick={() => void removeBlog(item)}>Delete</button>}
+          </div>)}
           {!savedRuns.length && !historyError && <p className="caption">No saved runs yet.</p>}
         </div>
         {runId && (

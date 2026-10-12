@@ -8,7 +8,13 @@ from typing import Any
 import streamlit as st
 
 from blog_writer.persistence import DATABASE_PATH, run_store
-from blog_writer.paths import PROJECT_DIR, RUNS_ROOT
+from blog_writer.paths import IMAGES_ROOT, PROJECT_DIR, RUNS_ROOT, is_within
+from blog_writer.blog_deletion import (
+    BlogDeleteConflictError,
+    BlogNotFoundError,
+    delete_blog_artifacts,
+    delete_saved_blog,
+)
 from ui.job_monitor import persisted_snapshot, resume_job
 
 
@@ -76,12 +82,64 @@ def render_past_blogs(job_is_running: bool) -> None:
             "image_specs": [],
             "final": markdown,
         }
+        st.session_state["loaded_blog_path"] = str(selected_path)
         st.session_state["draft_state"] = None
         st.session_state["workflow_metrics"] = None
         st.session_state["last_notice"] = (
             f"Loaded {selected_path.relative_to(PROJECT_DIR)}."
         )
         st.rerun()
+
+    selected_path = files_by_label[selected_label]
+    confirm_delete = st.checkbox(
+        "Confirm permanent deletion of the selected blog",
+        key=f"confirm_delete_{selected_path.relative_to(PROJECT_DIR).as_posix()}",
+        disabled=job_is_running,
+    )
+    if st.button(
+        "Delete selected blog",
+        disabled=job_is_running or not confirm_delete,
+        width="stretch",
+    ):
+        try:
+            if is_within(selected_path, RUNS_ROOT):
+                blog_id = selected_path.parent.name
+                saved_run_id = None
+                for phase in run_store.get_blog_runs(blog_id):
+                    record = run_store.get_run(phase["run_id"])
+                    if record and record["state"].get("final"):
+                        saved_run_id = phase["run_id"]
+                        break
+                if saved_run_id:
+                    active_job = st.session_state.get("active_job")
+                    active_jobs = {active_job.id: active_job} if active_job else None
+                    delete_saved_blog(
+                        saved_run_id,
+                        store=run_store,
+                        active_jobs=active_jobs,
+                        runs_root=RUNS_ROOT,
+                        images_root=IMAGES_ROOT,
+                    )
+                else:
+                    delete_blog_artifacts(
+                        blog_id, runs_root=RUNS_ROOT, images_root=IMAGES_ROOT,
+                    )
+            else:
+                selected_path.unlink()
+        except (BlogDeleteConflictError, BlogNotFoundError, OSError) as error:
+            st.error(f"Could not delete blog: {error}")
+        else:
+            last_out = st.session_state.get("last_out") or {}
+            if (
+                st.session_state.get("loaded_blog_path") == str(selected_path)
+                or last_out.get("blog_id") == selected_path.parent.name
+            ):
+                st.session_state["last_out"] = None
+                st.session_state["draft_state"] = None
+                st.session_state["workflow_metrics"] = None
+                st.session_state.pop("loaded_blog_path", None)
+            st.session_state["last_notice"] = "Selected blog deleted."
+            st.rerun()
 
 
 def render_persistent_runs(job_is_running: bool) -> None:
@@ -139,4 +197,44 @@ def render_persistent_runs(job_is_running: bool) -> None:
     ):
         resume_job(selected_run)
         st.rerun()
+    blog_id = str(selected_run["state"].get("blog_id") or "")
+    can_delete_run = (
+        bool(blog_id)
+        and selected_run["status"] in {"completed", "failed", "cancelled", "interrupted"}
+    )
+    if can_delete_run:
+        confirmed = st.checkbox(
+            "Confirm permanent deletion of this blog and its saved runs",
+            key=f"confirm_delete_run_{selected_run['run_id']}",
+            disabled=job_is_running,
+        )
+        if st.button(
+            "Delete selected run and blog",
+            disabled=job_is_running or not confirmed,
+            width="stretch",
+        ):
+            try:
+                active_job = st.session_state.get("active_job")
+                active_jobs = {active_job.id: active_job} if active_job else None
+                delete_saved_blog(
+                    selected_run["run_id"],
+                    store=run_store,
+                    active_jobs=active_jobs,
+                    runs_root=RUNS_ROOT,
+                    images_root=IMAGES_ROOT,
+                )
+            except (BlogDeleteConflictError, BlogNotFoundError, OSError) as error:
+                st.error(f"Could not delete blog: {error}")
+            else:
+                for key in ("draft_state", "last_out"):
+                    current = st.session_state.get(key) or {}
+                    if current.get("blog_id") == blog_id:
+                        st.session_state[key] = None
+                if active_job and active_job.snapshot()["current_state"].get("blog_id") == blog_id:
+                    st.session_state["active_job"] = None
+                st.session_state["workflow_metrics"] = None
+                st.session_state["last_run_logs"] = []
+                st.session_state["last_error"] = None
+                st.session_state["last_notice"] = "Selected blog and its saved runs deleted."
+                st.rerun()
     st.caption(f"SQLite: `{DATABASE_PATH}`")

@@ -239,6 +239,38 @@ class RunStore:
             ).fetchall()
         return [self._decode_row(row) for row in rows]
 
+    def get_blog_runs(self, blog_id: str) -> list[dict[str, str]]:
+        """Find every phase belonging to one generated blog."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT run_id, checkpoint_thread_id, status FROM blog_runs WHERE blog_id = ?",
+                (blog_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def delete_blog(self, blog_id: str) -> int:
+        """Remove finished run metadata and checkpoints for one blog."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT checkpoint_thread_id, status FROM blog_runs WHERE blog_id = ?",
+                (blog_id,),
+            ).fetchall()
+            if any(row["status"] in {"created", "running", "cancelling"} for row in rows):
+                raise ValueError("Wait for all blog phases to finish before deleting the blog.")
+            threads = [row["checkpoint_thread_id"] for row in rows]
+            tables = {
+                row["name"]
+                for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+            }
+            for table in ("writes", "checkpoints", "checkpoint_blobs"):
+                if table in tables:
+                    connection.executemany(
+                        f"DELETE FROM {table} WHERE thread_id = ?",
+                        [(thread_id,) for thread_id in threads],
+                    )
+            connection.execute("DELETE FROM blog_runs WHERE blog_id = ?", (blog_id,))
+            return len(rows)
+
     @staticmethod
     def _decode_row(row: sqlite3.Row) -> dict[str, Any]:
         """Convert a database row into the dictionary shape expected by the UI."""

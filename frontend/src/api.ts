@@ -86,3 +86,7 @@ export function startDiscovery(seedTopic: string, asOf: string, lookbackDays: nu
 export function cancelRun(runId: string) {
   return request<RunSnapshot>(`/runs/${runId}/cancel`, { method: "POST" });
 }
+
+export function deleteBlog(runId: string) {
+  return request<{ deleted_runs: number }>(`/runs/${runId}/blog`, { method: "DELETE" });
+}

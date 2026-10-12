@@ -110,6 +110,10 @@ http://localhost:8501
 
 Generated articles and images are saved under `backend/output/`.
 
+To remove an old blog in Streamlit, use **Past blogs** for a finished article or
+**Persistent runs** for a completed or failed run. Select the item, tick the
+confirmation box, and click its Delete button. Active runs cannot be deleted.
+
 ## Run Both Services with Docker
 
 Install and start Docker Desktop with Linux containers enabled. Keep your API
@@ -162,6 +166,8 @@ Topic Discovery from the Workspace control in the sidebar. Discovery ideas can
 be passed directly to Blog Writer with "Write this topic". `frontend/server.ts` uses
 Bun's native HTTP server and HTML bundler to serve React, with hot reloading.
 Browser requests to `/api/*` are forwarded to the existing Python API.
+In the Bun sidebar, use **Past blogs** to delete a finished article or
+**Persistent runs** to delete a completed or failed run. Both ask for confirmation.
 Set `API_BASE_URL` in `frontend/.env` to change the backend URL.
 After installing Bun on Windows, reopen PowerShell so `bun` is available on PATH.
 

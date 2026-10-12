@@ -20,6 +20,12 @@ from blog_writer.graph import (
 )
 from blog_writer.jobs import GraphJob, TERMINAL_JOB_STATUSES
 from blog_writer.persistence import run_store
+from blog_writer.paths import IMAGES_ROOT, RUNS_ROOT
+from blog_writer.blog_deletion import (
+    BlogDeleteConflictError,
+    BlogNotFoundError,
+    delete_saved_blog as delete_blog_record,
+)
 from blog_writer.workflow import (
     initial_state,
     state_with_evidence as _state_with_evidence,
@@ -170,6 +176,21 @@ def list_runs(limit: int = 20) -> list[RunSnapshotResponse]:
 def get_run(run_id: str) -> RunSnapshotResponse:
     """Fetch the latest state for a live or persisted run."""
     return _get_snapshot(run_id)
+
+
+@app.delete("/runs/{run_id}/blog")
+def delete_saved_blog(run_id: str) -> dict[str, int]:
+    """Delete an inactive blog and its generated files across all phases."""
+    try:
+        deleted_runs = delete_blog_record(
+            run_id, store=run_store, active_jobs=ACTIVE_JOBS,
+            runs_root=RUNS_ROOT, images_root=IMAGES_ROOT,
+        )
+    except BlogNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except BlogDeleteConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return {"deleted_runs": deleted_runs}
 
 
 @app.post("/runs/{run_id}/cancel", response_model=RunSnapshotResponse)

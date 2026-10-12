@@ -33,6 +33,7 @@ export type SectionDraft = {
 };
 
 export type RunState = {
+  blog_id?: string;
   seed_topic?: string;
   as_of?: string;
   discovery_queries?: string[];
